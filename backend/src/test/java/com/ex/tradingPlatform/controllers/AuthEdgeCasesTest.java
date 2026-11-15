@@ -146,8 +146,20 @@ class AuthEdgeCasesTest extends IntegrationTest {
     }
 
     @Test
-    void openApiDocsArePublic() throws Exception {
-        mvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
+    void openApiDocsArePublicAndDeclareBearerScheme() throws Exception {
+        mvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.bearerFormat").value("JWT"))
+                .andExpect(jsonPath("$.security[0].bearerAuth").exists())
+                // auth endpoints are public: explicit empty security requirement
+                .andExpect(jsonPath("$.paths['/api/auth/login'].post.security").isEmpty());
+    }
+
+    @Test
+    void swaggerUiIsPublic() throws Exception {
+        mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
     }
 
     @Test
