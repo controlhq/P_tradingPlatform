@@ -1,6 +1,5 @@
-package com.ex.tradingPlatform.auth;
+package com.ex.tradingPlatform.entities;
 
-import com.ex.tradingPlatform.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

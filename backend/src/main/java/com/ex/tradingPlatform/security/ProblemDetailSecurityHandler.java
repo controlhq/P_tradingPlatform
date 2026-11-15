@@ -1,5 +1,6 @@
-package com.ex.tradingPlatform.common;
+package com.ex.tradingPlatform.security;
 
+import com.ex.tradingPlatform.exceptions.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

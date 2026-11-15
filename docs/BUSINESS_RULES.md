@@ -10,8 +10,10 @@ Each rule has a stable ID (`BRxx`). Tests covering a rule are named `BRxx_descri
 | BR04 | A LIMIT order requires a limit price; other order types must not have one. | DB `ck_orders_limit_price` |
 | BR05 | A STOP order requires a stop price; other order types must not have one. | DB `ck_orders_stop_price` |
 | BR06 | Blocked shares in a position can never exceed the held quantity (no short selling). | DB `ck_positions_blocked_quantity_le_q` |
-| BR07 | User email is unique and stored lowercase. | DB `uq_users_email`, `ck_users_email_lower` |
+| BR07 | User email is unique (case-insensitive) and stored trimmed and lowercase; a duplicate returns 409 `EMAIL_TAKEN`. | `AuthService.register`, DB `uq_users_email`, `ck_users_email_lower` |
 | BR08 | Only a hash of a refresh token is stored; a revoked or expired token cannot be used. | `RefreshToken.isActive` |
 | BR09 | Each user has exactly one cash account. | DB `uq_accounts_user` |
 | BR10 | Funds are reserved only for BUY orders; SELL orders reserve nothing. | DB `ck_orders_reserved_buy_only` |
 | BR11 | A position exists only while it holds at least one share. | DB `ck_positions_quantity` |
+| BR12 | Registration creates the user (role USER) and their cash account with balance 0 in one transaction. | `AuthService.register` |
+| BR13 | Password is 8–128 characters and contains at least one letter and one digit. | `RegisterRequest` (Bean Validation) |

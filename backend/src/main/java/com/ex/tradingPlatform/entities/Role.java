@@ -1,4 +1,4 @@
-package com.ex.tradingPlatform.user;
+package com.ex.tradingPlatform.entities;
 
 public enum Role {
     USER,

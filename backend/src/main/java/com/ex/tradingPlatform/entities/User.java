@@ -1,4 +1,4 @@
-package com.ex.tradingPlatform.user;
+package com.ex.tradingPlatform.entities;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

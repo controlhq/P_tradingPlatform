@@ -1,4 +1,4 @@
-package com.ex.tradingPlatform.common;
+package com.ex.tradingPlatform.exceptions;
 
 import lombok.Getter;
 import org.springframework.http.HttpStatus;

@@ -1,6 +1,7 @@
-package com.ex.tradingPlatform.common;
+package com.ex.tradingPlatform.exceptions;
 
-import com.ex.tradingPlatform.auth.SecurityConfig;
+import com.ex.tradingPlatform.config.SecurityConfig;
+import com.ex.tradingPlatform.security.ProblemDetailSecurityHandler;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
 import jakarta.validation.Validation;

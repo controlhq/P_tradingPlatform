@@ -1,4 +1,4 @@
-package com.ex.tradingPlatform.common;
+package com.ex.tradingPlatform.exceptions;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
