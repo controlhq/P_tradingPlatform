@@ -14,6 +14,8 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 
@@ -32,6 +34,7 @@ public class RefreshToken {
     private User user;
 
     /** SHA-256 hex of the raw token; the raw value is never persisted. */
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "token_hash", nullable = false, unique = true, length = 64, updatable = false)
     private String tokenHash;
 
