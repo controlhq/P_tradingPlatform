@@ -1,4 +1,21 @@
-Diagram ERD:
+# Trading Simulator
+
+## Struktura
+```
+backend/                 Spring Boot 3.5 (Java 21)
+frontend/                React + Vite + TS (w przygotowaniu)
+docs/BUSINESS_RULES.md   reguły biznesowe (BRxx)
+docker-compose.yml       PostgreSQL 16 (port 5433)
+```
+
+## Uruchomienie
+```
+docker compose up -d db
+cd backend
+./mvnw spring-boot:run
+```
+
+## Diagram ERD
 
 ```mermaid
 erDiagram
