@@ -17,3 +17,7 @@ Each rule has a stable ID (`BRxx`). Tests covering a rule are named `BRxx_descri
 | BR11 | A position exists only while it holds at least one share. | DB `ck_positions_quantity` |
 | BR12 | Registration creates the user (role USER) and their cash account with balance 0 in one transaction. | `AuthService.register` |
 | BR13 | Password is 8–128 characters and contains at least one letter and one digit. | `RegisterRequest` (Bean Validation) |
+| BR14 | Login returns a 15-minute HS256 access token (`sub`=user id, `role`). Wrong password, unknown email and disabled account all return the identical 401 "Invalid credentials". | `AuthService.login` |
+| BR15 | Refresh tokens are 256-bit random values valid for 7 days; only their SHA-256 hash is stored. | `TokenService`, `AuthService.issueTokens` |
+| BR16 | Refresh rotates the pair and revokes the old token. Presenting a revoked token revokes all of the user's tokens and returns 401. | `AuthService.refresh` |
+| BR17 | Logout revokes the given refresh token; it is idempotent and always returns 204. | `AuthService.logout` |

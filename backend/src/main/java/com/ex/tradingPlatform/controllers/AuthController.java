@@ -1,6 +1,9 @@
 package com.ex.tradingPlatform.controllers;
 
+import com.ex.tradingPlatform.dto.LoginRequest;
+import com.ex.tradingPlatform.dto.RefreshTokenRequest;
 import com.ex.tradingPlatform.dto.RegisterRequest;
+import com.ex.tradingPlatform.dto.TokenResponse;
 import com.ex.tradingPlatform.dto.UserResponse;
 import com.ex.tradingPlatform.services.AuthService;
 import jakarta.validation.Valid;
@@ -23,5 +26,21 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
+    }
+
+    @PostMapping("/login")
+    public TokenResponse login(@Valid @RequestBody LoginRequest request) {
+        return authService.login(request);
+    }
+
+    @PostMapping("/refresh")
+    public TokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return authService.refresh(request.refreshToken());
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@Valid @RequestBody RefreshTokenRequest request) {
+        authService.logout(request.refreshToken());
     }
 }

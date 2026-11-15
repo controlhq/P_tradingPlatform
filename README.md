@@ -9,6 +9,10 @@ docker-compose.yml       PostgreSQL 16 (port 5433)
 ```
 
 ## Uruchomienie
+Konfiguracja jest w pliku `.env` w katalogu głównym (nie trafia do repo). Przy pierwszym uruchomieniu:
+skopiuj `.env.example` do `.env` i uzupełnij `JWT_SECRET` (klucz HS256, min. 32 bajty, np. `openssl rand -base64 48`).
+Plik czytają zarówno docker compose, jak i backend. Zmienne ustawione w systemie mają pierwszeństwo przed `.env`.
+
 ```
 docker compose up -d db
 cd backend

@@ -1,5 +1,6 @@
 package com.ex.tradingPlatform.exceptions;
 
+import com.ex.tradingPlatform.config.JwtConfig;
 import com.ex.tradingPlatform.config.SecurityConfig;
 import com.ex.tradingPlatform.security.ProblemDetailSecurityHandler;
 import jakarta.validation.ConstraintViolationException;
@@ -36,7 +37,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = GlobalExceptionHandlerTest.ThrowingController.class)
-@Import({SecurityConfig.class, ProblemDetailSecurityHandler.class, GlobalExceptionHandlerTest.ThrowingController.class})
+@Import({SecurityConfig.class, JwtConfig.class, ProblemDetailSecurityHandler.class,
+        GlobalExceptionHandlerTest.ThrowingController.class})
 class GlobalExceptionHandlerTest {
 
     @Autowired
