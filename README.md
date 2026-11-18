@@ -153,6 +153,7 @@ Zwykłego użytkownika zakładasz przez `POST /api/auth/register` (rola `USER`).
 | GET | `/api/users/me` | zalogowany | dane bieżącego użytkownika |
 | GET | `/api/instruments` | zalogowany | aktywne instrumenty z ostatnią ceną `{id, symbol, name, active, lastPrice, lastPriceAt}` |
 | GET | `/api/instruments/{id}` | zalogowany | szczegóły instrumentu (także nieaktywnego); 404 `INSTRUMENT_NOT_FOUND` |
+| GET | `/api/instruments/{id}/prices?from=&to=&limit=` | zalogowany | historia cen `[{price, ts}]` rosnąco po czasie: ostatnie `limit` ticków z `[from, to]` (domyślnie 200, max 1000; `from`/`to` w ISO-8601, np. `2026-01-01T10:00:00Z`); 400 `INVALID_TIME_RANGE` gdy `from` > `to` |
 | GET | `/api/market/status` | zalogowany | stan rynku `{open, nextChange}`; `nextChange` = najbliższe otwarcie/zamknięcie, `null` gdy rynek zawsze otwarty |
 | GET | `/api/admin/ping` | `ADMIN` | test uprawnień → `{"status":"pong"}` |
 | POST | `/api/admin/instruments` | `ADMIN` | dodanie instrumentu `{symbol, name, initialPrice}` → 201; 409 `SYMBOL_TAKEN` |

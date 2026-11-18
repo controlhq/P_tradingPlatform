@@ -2,6 +2,7 @@ package com.ex.tradingPlatform.services;
 
 import com.ex.tradingPlatform.dto.CreateInstrumentRequest;
 import com.ex.tradingPlatform.dto.InstrumentResponse;
+import com.ex.tradingPlatform.dto.PricePointResponse;
 import com.ex.tradingPlatform.dto.UpdateInstrumentRequest;
 import com.ex.tradingPlatform.entities.Instrument;
 import com.ex.tradingPlatform.entities.PriceTick;
@@ -11,6 +12,7 @@ import com.ex.tradingPlatform.repositories.PriceTickRepository;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Limit;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +32,7 @@ public class InstrumentService {
 
     static final String INSTRUMENT_NOT_FOUND = "INSTRUMENT_NOT_FOUND";
     static final String SYMBOL_TAKEN = "SYMBOL_TAKEN";
+    static final String INVALID_TIME_RANGE = "INVALID_TIME_RANGE";
     private static final String SYMBOL_UNIQUE_CONSTRAINT = "uq_instruments_symbol";
     private static final int PRICE_SCALE = 4;
 
@@ -58,6 +61,24 @@ public class InstrumentService {
     public InstrumentResponse getById(Long id) {
         Instrument instrument = findOrThrow(id);
         return toResponse(instrument);
+    }
+
+    /**
+     * The {@code limit} most recent ticks with {@code from <= ts <= to}, oldest first.
+     * A missing {@code from} means no lower bound, a missing {@code to} means now.
+     */
+    @Transactional(readOnly = true)
+    public List<PricePointResponse> priceHistory(Long id, Instant from, Instant to, int limit) {
+        if (!instrumentRepository.existsById(id)) {
+            throw instrumentNotFound();
+        }
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, INVALID_TIME_RANGE, "'from' must not be after 'to'.");
+        }
+
+        List<PriceTick> newestFirst = priceTickRepository.findByInstrumentIdAndTsBetweenOrderByTsDescIdDesc(
+                id, from != null ? from : Instant.EPOCH, to != null ? to : clock.instant(), Limit.of(limit));
+        return newestFirst.reversed().stream().map(PricePointResponse::from).toList();
     }
 
     @Transactional
@@ -95,10 +116,12 @@ public class InstrumentService {
         return new BusinessException(HttpStatus.CONFLICT, SYMBOL_TAKEN, "Symbol is already taken.");
     }
 
+    private static BusinessException instrumentNotFound() {
+        return new BusinessException(HttpStatus.NOT_FOUND, INSTRUMENT_NOT_FOUND, "Instrument not found.");
+    }
+
     private Instrument findOrThrow(Long id) {
-        return instrumentRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(
-                        HttpStatus.NOT_FOUND, INSTRUMENT_NOT_FOUND, "Instrument not found."));
+        return instrumentRepository.findById(id).orElseThrow(InstrumentService::instrumentNotFound);
     }
 
     private InstrumentResponse toResponse(Instrument instrument) {
