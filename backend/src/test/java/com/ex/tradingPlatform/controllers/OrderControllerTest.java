@@ -258,7 +258,117 @@ class OrderControllerTest extends IntegrationTest {
         assertThat(balance()).isEqualTo(new BigDecimal("97300.0000"));
     }
 
+    // ------------------------------------------------------------------ SELL
+
+    @Test
+    void BR38_sellWithoutPosition_returns409AndNothingChanges() throws Exception {
+        deposit("1000");
+
+        place(order("SELL", "MARKET", aapl, 1, null, null))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_SHARES"));
+        assertNothingExecuted("1000.0000");
+    }
+
+    @Test
+    void BR38_sellMoreThanHeld_returns409AndPositionStays() throws Exception {
+        deposit("1000");
+        place(order("BUY", "MARKET", aapl, 5, null, null)).andExpect(status().isCreated());
+
+        place(order("SELL", "MARKET", aapl, 6, null, null))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_SHARES"));
+
+        assertThat(positionQuantity()).isEqualTo(5);
+        assertThat(balance()).isEqualTo(new BigDecimal("500.0000"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM orders", Long.class)).isEqualTo(1);
+    }
+
+    @Test
+    void BR38_sell_cannotUseBlockedShares() throws Exception {
+        deposit("1000");
+        place(order("BUY", "MARKET", aapl, 10, null, null)).andExpect(status().isCreated());
+        jdbc.update("UPDATE positions SET blocked_quantity = 4 WHERE user_id = ?", userId);
+
+        place(order("SELL", "MARKET", aapl, 7, null, null))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_SHARES"));
+        place(order("SELL", "MARKET", aapl, 6, null, null))
+                .andExpect(status().isCreated());
+
+        assertThat(jdbc.queryForMap("SELECT quantity, blocked_quantity FROM positions WHERE user_id = ?", userId))
+                .containsEntry("quantity", 4)
+                .containsEntry("blocked_quantity", 4);
+    }
+
+    @Test
+    void BR39_marketSell_creditsProceedsKeepsAveragePriceAndRecordsLedger() throws Exception {
+        deposit("1000");
+        place(order("BUY", "MARKET", aapl, 10, null, null)).andExpect(status().isCreated());   // 10 @ 100
+        insertTick(aapl, "120.5000", T0.plusSeconds(60));
+
+        long orderId = readJson(place(order("SELL", "MARKET", aapl, 4, null, null))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.side").value("SELL"))
+                .andExpect(jsonPath("$.status").value("FILLED"))
+                .andExpect(jsonPath("$.filledPrice").value(120.5)))
+                .get("id").asLong();
+
+        assertThat(balance()).isEqualTo(new BigDecimal("482.0000"));
+        assertThat(jdbc.queryForMap("SELECT quantity, avg_price FROM positions WHERE user_id = ?", userId))
+                .containsEntry("quantity", 6)
+                .containsEntry("avg_price", new BigDecimal("100.0000"));
+        assertThat(jdbc.queryForMap(
+                "SELECT amount, balance_after, order_id FROM transactions WHERE type = 'SELL'"))
+                .containsEntry("amount", new BigDecimal("482.0000"))
+                .containsEntry("balance_after", new BigDecimal("482.0000"))
+                .containsEntry("order_id", orderId);
+    }
+
+    @Test
+    void BR11_sellingAllShares_deletesPosition() throws Exception {
+        deposit("1000");
+        place(order("BUY", "MARKET", aapl, 5, null, null)).andExpect(status().isCreated());
+
+        place(order("SELL", "MARKET", aapl, 5, null, null)).andExpect(status().isCreated());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM positions", Long.class)).isZero();
+
+        // buying again opens a fresh position at the new price
+        insertTick(aapl, "50.0000", T0.plusSeconds(60));
+        place(order("BUY", "MARKET", aapl, 2, null, null)).andExpect(status().isCreated());
+        assertThat(jdbc.queryForMap("SELECT quantity, avg_price FROM positions WHERE user_id = ?", userId))
+                .containsEntry("quantity", 2)
+                .containsEntry("avg_price", new BigDecimal("50.0000"));
+    }
+
+    @Test
+    void BR31_ledgerMatchesBalanceAfterBuysAndSells() throws Exception {
+        deposit("10000");
+        place(order("BUY", "MARKET", aapl, 20, null, null)).andExpect(status().isCreated());
+        insertTick(aapl, "111.1111", T0.plusSeconds(60));
+        place(order("SELL", "MARKET", aapl, 7, null, null)).andExpect(status().isCreated());
+        place(order("SELL", "MARKET", aapl, 99, null, null)).andExpect(status().isConflict());
+        place(order("BUY", "MARKET", aapl, 3, null, null)).andExpect(status().isCreated());
+
+        BigDecimal ledgerSum = jdbc.queryForObject("""
+                SELECT SUM(CASE WHEN type IN ('DEPOSIT', 'SELL') THEN amount ELSE -amount END)
+                FROM transactions WHERE user_id = ?""", BigDecimal.class, userId);
+        BigDecimal lastBalanceAfter = jdbc.queryForObject(
+                "SELECT balance_after FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+                BigDecimal.class, userId);
+        // 10000 - 2000 + 7 * 111.1111 - 3 * 111.1111
+        assertThat(balance()).isEqualTo(new BigDecimal("8444.4444"));
+        assertThat(ledgerSum).isEqualByComparingTo(balance());
+        assertThat(lastBalanceAfter).isEqualTo(balance());
+        assertThat(positionQuantity()).isEqualTo(16);
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    private int positionQuantity() {
+        return jdbc.queryForObject("SELECT quantity FROM positions WHERE user_id = ?", Integer.class, userId);
+    }
 
     private ResultActions place(String json) throws Exception {
         return mvc.perform(withBearer(post("/api/orders"), token)

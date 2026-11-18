@@ -41,4 +41,5 @@ Each rule has a stable ID (`BRxx`). Tests covering a rule are named `BRxx_descri
 | BR35 | An order placed while the market is closed (BR23) returns 409 `MARKET_CLOSED`. | `OrderService.place` |
 | BR36 | An order for an unknown instrument returns 404 `INSTRUMENT_NOT_FOUND`; for an inactive instrument 422 `INSTRUMENT_INACTIVE`. | `OrderService.place` |
 | BR37 | A BUY requires available funds (`balance − blockedBalance`) of at least `quantity × latest price`; otherwise 409 `INSUFFICIENT_FUNDS`. | `OrderService` |
+| BR38 | A SELL requires free shares (`quantity − blocked_quantity` of the position) of at least the order quantity; otherwise 409 `INSUFFICIENT_SHARES`. A position that reaches 0 shares is deleted (BR11). | `OrderService` |
 | BR39 | A MARKET order is filled immediately at the latest price (BR18): status FILLED with `filled_price` and `filled_at`; the account, the position and a BUY/SELL transaction linked by `order_id` change in the same DB transaction. A rejected order is not stored. | `OrderService` |

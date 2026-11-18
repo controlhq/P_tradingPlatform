@@ -33,7 +33,8 @@ public class OrderController {
     @ApiResponse(responseCode = "401", description = "Missing, invalid or expired access token")
     @ApiResponse(responseCode = "404", description = "Instrument does not exist (INSTRUMENT_NOT_FOUND)")
     @ApiResponse(responseCode = "409",
-            description = "Market closed (MARKET_CLOSED) or not enough funds (INSUFFICIENT_FUNDS)")
+            description = "Market closed (MARKET_CLOSED), not enough funds (INSUFFICIENT_FUNDS) "
+                    + "or free shares (INSUFFICIENT_SHARES)")
     @ApiResponse(responseCode = "422", description = "Instrument is inactive (INSTRUMENT_INACTIVE)")
     @ApiResponse(responseCode = "501", description = "Order type not supported yet (ORDER_TYPE_NOT_SUPPORTED)")
     public OrderResponse place(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody PlaceOrderRequest request) {

@@ -36,6 +36,7 @@ public class OrderService {
     static final String INSTRUMENT_NOT_PRICED = "INSTRUMENT_NOT_PRICED";
     static final String MARKET_CLOSED = "MARKET_CLOSED";
     static final String INSUFFICIENT_FUNDS = "INSUFFICIENT_FUNDS";
+    static final String INSUFFICIENT_SHARES = "INSUFFICIENT_SHARES";
     static final String ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
 
     private final OrderRepository orderRepository;
@@ -76,8 +77,7 @@ public class OrderService {
         if (request.side() == OrderSide.BUY) {
             fillBuy(account, order, price, now);
         } else {
-            throw new BusinessException(HttpStatus.NOT_IMPLEMENTED, ORDER_TYPE_NOT_SUPPORTED,
-                    "SELL orders are not supported yet.");
+            fillSell(account, order, price, now);
         }
         return OrderResponse.from(order);
     }
@@ -113,5 +113,26 @@ public class OrderService {
 
         transactionRepository.save(new Transaction(
                 account.getUser(), order, TransactionType.BUY, cost, account.getBalance(), now));
+    }
+
+    private void fillSell(Account account, Order order, BigDecimal price, Instant now) {
+        Position position = positionRepository
+                .findByUserIdAndInstrumentId(account.getUser().getId(), order.getInstrument().getId())
+                .filter(p -> p.getFreeQuantity() >= order.getQuantity())
+                .orElseThrow(() -> new BusinessException(HttpStatus.CONFLICT, INSUFFICIENT_SHARES,
+                        "Order quantity exceeds free shares."));
+
+        BigDecimal proceeds = price.multiply(BigDecimal.valueOf(order.getQuantity()));
+        account.deposit(proceeds, now);
+        order.fill(price, now);
+        orderRepository.save(order);
+
+        position.remove(order.getQuantity(), now);
+        if (position.getQuantity() == 0) {
+            positionRepository.delete(position);
+        }
+
+        transactionRepository.save(new Transaction(
+                account.getUser(), order, TransactionType.SELL, proceeds, account.getBalance(), now));
     }
 }
