@@ -1,6 +1,7 @@
 package com.ex.tradingPlatform.services;
 
 import com.ex.tradingPlatform.config.MarketProperties;
+import com.ex.tradingPlatform.dto.MarketStatusResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,10 @@ public class MarketHoursService {
     /** Open on trading days from open-time (inclusive) to close-time (exclusive), in the market zone. */
     public boolean isOpen() {
         return properties.alwaysOpen() || isOpenAt(now());
+    }
+
+    public MarketStatusResponse status() {
+        return new MarketStatusResponse(isOpen(), nextChange().orElse(null));
     }
 
     /** When the market opens or closes next; empty when it is configured as always open. */
