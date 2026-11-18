@@ -21,3 +21,4 @@ Each rule has a stable ID (`BRxx`). Tests covering a rule are named `BRxx_descri
 | BR15 | Refresh tokens are 256-bit random values valid for 7 days; only their SHA-256 hash is stored. | `TokenService`, `AuthService.issueTokens` |
 | BR16 | Refresh rotates the pair and revokes the old token. Presenting a revoked token revokes all of the user's tokens and returns 401. | `AuthService.refresh` |
 | BR17 | Logout revokes the given refresh token; it is idempotent and always returns 204. | `AuthService.logout` |
+| BR18 | The current price of an instrument is its most recent price tick (latest `ts`; ticks with equal `ts` are ordered by id). | `PriceTickRepository` |
