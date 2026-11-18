@@ -32,3 +32,6 @@ Each rule has a stable ID (`BRxx`). Tests covering a rule are named `BRxx_descri
 | BR26 | Once an hour, price ticks older than `market.tick-retention-days` (default 7) are deleted, except the latest tick of each instrument (BR18), which is always kept. | `PriceTickRetentionService` |
 | BR27 | A cash transaction has `amount > 0` and `balance_after >= 0`; BUY and SELL reference an order, DEPOSIT and WITHDRAW do not. | DB `ck_transactions_amount`, `ck_transactions_balance`, `ck_transactions_order` |
 | BR28 | A user sees only their own cash account: `balance`, `blockedBalance` and `available = balance − blockedBalance`. | `AccountService` |
+| BR29 | A deposit or withdrawal amount is > 0, has at most 4 decimal places and is at most 1 000 000 per operation; otherwise 400 with a field error on `amount`. | `AmountRequest` (Bean Validation) |
+| BR30 | A withdrawal may use only available funds (`balance − blockedBalance`); otherwise 409 `INSUFFICIENT_FUNDS` and nothing changes. Concurrent operations on one account are serialized by a row lock. | `AccountService.withdraw`, `AccountRepository.findByUserIdForUpdate` |
+| BR31 | Every deposit and withdrawal writes a ledger transaction (`amount`, `balance_after`) in the same DB transaction as the balance change, so the signed sum of the ledger always equals the balance. | `AccountService` |

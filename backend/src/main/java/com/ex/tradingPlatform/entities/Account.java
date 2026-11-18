@@ -56,4 +56,18 @@ public class Account {
     public BigDecimal getAvailableBalance() {
         return balance.subtract(blockedBalance);
     }
+
+    public void deposit(BigDecimal amount, Instant now) {
+        this.balance = balance.add(amount);
+        this.updatedAt = now;
+    }
+
+    /** Callers check available funds first; this guard only protects blocked funds from a bug. */
+    public void withdraw(BigDecimal amount, Instant now) {
+        if (amount.compareTo(getAvailableBalance()) > 0) {
+            throw new IllegalStateException("Withdrawal exceeds available funds");
+        }
+        this.balance = balance.subtract(amount);
+        this.updatedAt = now;
+    }
 }
