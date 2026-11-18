@@ -91,6 +91,22 @@ public class Order {
         this.updatedAt = now;
     }
 
+    /**
+     * Whether a pending order fills at this price: LIMIT BUY at or below the limit, LIMIT SELL at or above it,
+     * STOP BUY at or above the stop, STOP SELL at or below it. MARKET orders never wait, so never match.
+     */
+    public boolean isTriggeredBy(BigDecimal price) {
+        return switch (type) {
+            case LIMIT -> side == OrderSide.BUY
+                    ? price.compareTo(limitPrice) <= 0
+                    : price.compareTo(limitPrice) >= 0;
+            case STOP -> side == OrderSide.BUY
+                    ? price.compareTo(stopPrice) >= 0
+                    : price.compareTo(stopPrice) <= 0;
+            case MARKET -> false;
+        };
+    }
+
     /** Records the funds blocked for this pending BUY order (mirrored in the account's blocked balance). */
     public void reserveFunds(BigDecimal amount) {
         if (side != OrderSide.BUY || status != OrderStatus.NEW) {
