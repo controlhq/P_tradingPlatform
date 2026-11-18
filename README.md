@@ -47,6 +47,10 @@ i uzupełnij w `.env`:
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD` | połączenie z bazą; te same wartości użyje kontener |
 | `JWT_SECRET` | klucz HS256, **min. 32 bajty**, np. `openssl rand -base64 48`. Bez niego aplikacja nie wystartuje |
 | `CORS_ALLOWED_ORIGINS` | adresy frontendu oddzielone przecinkami (domyślnie `http://localhost:5173`) |
+| `MARKET_OPEN_TIME`, `MARKET_CLOSE_TIME` | godziny sesji w strefie Europe/Warsaw, pn–pt (domyślnie `09:00`–`17:00`) |
+| `MARKET_ALWAYS_OPEN` | `true` = rynek otwarty zawsze, np. na demo (domyślnie `false`) |
+| `MARKET_TICK_INTERVAL_MS` | co ile ms symulator generuje nowe ceny (domyślnie `3000`) |
+| `MARKET_VOLATILITY` | odchylenie standardowe zmiany ceny w jednym ticku, np. `0.005` = 0,5% |
 
 Zmienne ustawione w systemie mają pierwszeństwo przed `.env`.
 

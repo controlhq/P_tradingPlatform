@@ -1,0 +1,9 @@
+package com.ex.tradingPlatform.config;
+
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@EnableConfigurationProperties(MarketProperties.class)
+public class MarketConfig {
+}
