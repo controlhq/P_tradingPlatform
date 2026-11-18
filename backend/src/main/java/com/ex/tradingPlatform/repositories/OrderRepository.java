@@ -20,4 +20,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @EntityGraph(attributePaths = "instrument")
     Optional<Order> findByIdAndUserId(Long id, Long userId);
+
+    long countByUserIdAndStatus(Long userId, OrderStatus status);
 }

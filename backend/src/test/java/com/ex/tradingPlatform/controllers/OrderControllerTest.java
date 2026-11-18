@@ -502,7 +502,66 @@ class OrderControllerTest extends IntegrationTest {
         assertNothingExecuted("1000.0000");
     }
 
+    // ------------------------------------------------------------------ open order limit
+
+    @Test
+    void BR44_21stOpenOrder_returns409AndNothingChanges() throws Exception {
+        deposit("1000");
+        place(order("BUY", "MARKET", aapl, 5, null, null)).andExpect(status().isCreated());
+        for (int i = 0; i < 18; i++) {
+            place(order("BUY", "LIMIT", aapl, 1, "1", null)).andExpect(status().isCreated());
+        }
+        place(order("SELL", "LIMIT", aapl, 1, "200", null)).andExpect(status().isCreated());
+        place(order("SELL", "STOP", aapl, 1, null, "50")).andExpect(status().isCreated());   // 20 open
+
+        place(order("BUY", "LIMIT", aapl, 1, "1", null))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("TOO_MANY_OPEN_ORDERS"));
+        place(order("SELL", "STOP", aapl, 1, null, "50"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_OPEN_ORDERS"));
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM orders WHERE status = 'NEW'", Long.class)).isEqualTo(20);
+        assertAccount("500.0000", "18.0000");
+        assertPosition(5, 2);
+    }
+
+    @Test
+    void BR44_marketOrders_areAllowedAtTheLimit() throws Exception {
+        deposit("1000");
+        for (int i = 0; i < 20; i++) {
+            place(order("BUY", "LIMIT", aapl, 1, "1", null)).andExpect(status().isCreated());
+        }
+
+        place(order("BUY", "MARKET", aapl, 1, null, null)).andExpect(status().isCreated());
+    }
+
+    @Test
+    void BR44_onlyOwnNewOrdersCountTowardsTheLimit() throws Exception {
+        deposit("1000");
+        long otherId = registerUser("jane@example.com", "secret123");
+        for (int i = 0; i < 20; i++) {
+            insertOrder(otherId, "NEW");
+            insertOrder(userId, "CANCELLED");
+        }
+        for (int i = 0; i < 19; i++) {
+            place(order("BUY", "LIMIT", aapl, 1, "1", null)).andExpect(status().isCreated());
+        }
+
+        place(order("BUY", "LIMIT", aapl, 1, "1", null)).andExpect(status().isCreated());
+        place(order("BUY", "LIMIT", aapl, 1, "1", null))
+                .andExpect(jsonPath("$.code").value("TOO_MANY_OPEN_ORDERS"));
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    private void insertOrder(long ownerId, String status) {
+        jdbc.update("""
+                        INSERT INTO orders (user_id, instrument_id, side, type, status, quantity, limit_price)
+                        VALUES (?, ?, 'SELL', 'LIMIT', ?, 1, 1)""",
+                ownerId, aapl, status);
+    }
 
     private void assertPosition(int expectedQuantity, int expectedBlocked) {
         assertThat(jdbc.queryForMap("SELECT quantity, blocked_quantity FROM positions WHERE user_id = ?", userId))

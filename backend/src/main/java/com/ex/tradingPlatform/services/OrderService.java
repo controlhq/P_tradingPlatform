@@ -45,6 +45,7 @@ public class OrderService {
     static final String INSUFFICIENT_SHARES = "INSUFFICIENT_SHARES";
     static final String ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
     static final String ORDER_NOT_FOUND = "ORDER_NOT_FOUND";
+    static final String TOO_MANY_OPEN_ORDERS = "TOO_MANY_OPEN_ORDERS";
     private static final int MONEY_SCALE = 4;
     // id breaks ties between orders created at the same instant
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
@@ -84,10 +85,17 @@ public class OrderService {
             } else {
                 fillSell(account, order, price, now);
             }
-        } else if (request.side() == OrderSide.BUY) {
-            reserveFunds(account, order, now);
         } else {
-            blockShares(order, now);
+            // counted under the account lock, so concurrent requests cannot both pass the limit
+            if (orderRepository.countByUserIdAndStatus(userId, OrderStatus.NEW) >= orderProperties.maxOpenOrders()) {
+                throw new BusinessException(HttpStatus.CONFLICT, TOO_MANY_OPEN_ORDERS,
+                        "At most " + orderProperties.maxOpenOrders() + " open orders are allowed.");
+            }
+            if (request.side() == OrderSide.BUY) {
+                reserveFunds(account, order, now);
+            } else {
+                blockShares(order, now);
+            }
         }
         return OrderResponse.from(order);
     }
