@@ -1,11 +1,13 @@
 package com.ex.tradingPlatform.services;
 
 import com.ex.tradingPlatform.dto.OrderResponse;
+import com.ex.tradingPlatform.dto.PageResponse;
 import com.ex.tradingPlatform.dto.PlaceOrderRequest;
 import com.ex.tradingPlatform.entities.Account;
 import com.ex.tradingPlatform.entities.Instrument;
 import com.ex.tradingPlatform.entities.Order;
 import com.ex.tradingPlatform.entities.OrderSide;
+import com.ex.tradingPlatform.entities.OrderStatus;
 import com.ex.tradingPlatform.entities.OrderType;
 import com.ex.tradingPlatform.entities.Position;
 import com.ex.tradingPlatform.entities.Transaction;
@@ -18,6 +20,9 @@ import com.ex.tradingPlatform.repositories.PositionRepository;
 import com.ex.tradingPlatform.repositories.PriceTickRepository;
 import com.ex.tradingPlatform.repositories.TransactionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +43,9 @@ public class OrderService {
     static final String INSUFFICIENT_FUNDS = "INSUFFICIENT_FUNDS";
     static final String INSUFFICIENT_SHARES = "INSUFFICIENT_SHARES";
     static final String ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
+    static final String ORDER_NOT_FOUND = "ORDER_NOT_FOUND";
+    // id breaks ties between orders created at the same instant
+    private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
     private final OrderRepository orderRepository;
     private final AccountRepository accountRepository;
@@ -80,6 +88,24 @@ public class OrderService {
             fillSell(account, order, price, now);
         }
         return OrderResponse.from(order);
+    }
+
+    /** The user's own orders, newest first; {@code status} is an optional filter. */
+    @Transactional(readOnly = true)
+    public PageResponse<OrderResponse> list(Long userId, OrderStatus status, int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size, NEWEST_FIRST);
+        Page<Order> result = status == null
+                ? orderRepository.findByUserId(userId, pageable)
+                : orderRepository.findByUserIdAndStatus(userId, status, pageable);
+        return PageResponse.from(result.map(OrderResponse::from));
+    }
+
+    /** Another user's order is reported as not found, so ids of foreign orders are not revealed. */
+    @Transactional(readOnly = true)
+    public OrderResponse get(Long userId, Long orderId) {
+        return orderRepository.findByIdAndUserId(orderId, userId)
+                .map(OrderResponse::from)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, ORDER_NOT_FOUND, "Order not found."));
     }
 
     private Instrument tradableInstrument(Long instrumentId) {
