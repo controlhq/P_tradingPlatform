@@ -18,6 +18,7 @@ public record OrderResponse(
         int quantity,
         BigDecimal limitPrice,
         BigDecimal stopPrice,
+        BigDecimal reservedAmount,
         BigDecimal filledPrice,
         Instant filledAt,
         Instant createdAt
@@ -34,6 +35,7 @@ public record OrderResponse(
                 order.getQuantity(),
                 order.getLimitPrice(),
                 order.getStopPrice(),
+                order.getReservedAmount(),
                 order.getFilledPrice(),
                 order.getFilledAt(),
                 order.getCreatedAt());

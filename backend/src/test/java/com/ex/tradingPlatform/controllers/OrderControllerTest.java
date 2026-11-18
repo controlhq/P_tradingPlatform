@@ -128,28 +128,102 @@ class OrderControllerTest extends IntegrationTest {
     // ------------------------------------------------------------------ preconditions
 
     @ParameterizedTest
-    @ValueSource(strings = {"LIMIT", "STOP"})
-    void BR34_limitAndStopOrders_return501(String type) throws Exception {
-        deposit("1000");
-        String limit = type.equals("LIMIT") ? "90" : null;
-        String stop = type.equals("STOP") ? "90" : null;
-
-        place(order("BUY", type, aapl, 1, limit, stop))
-                .andExpect(status().isNotImplemented())
-                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.code").value("ORDER_TYPE_NOT_SUPPORTED"));
-        assertNothingExecuted("1000.0000");
-    }
-
-    @Test
-    void BR35_marketClosed_returns409AndNothingChanges() throws Exception {
+    @ValueSource(strings = {"MARKET", "LIMIT", "STOP"})
+    void BR35_marketClosed_returns409AndNothingChanges(String type) throws Exception {
         deposit("1000");
         doReturn(false).when(marketHoursService).isOpen();
 
-        place(order("BUY", "MARKET", aapl, 1, null, null))
+        place(order("BUY", type, aapl, 1, type.equals("LIMIT") ? "90" : null, type.equals("STOP") ? "90" : null))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("MARKET_CLOSED"));
         assertNothingExecuted("1000.0000");
+    }
+
+    // ------------------------------------------------------------------ pending BUY
+
+    @Test
+    void BR34_BR42_buyLimit_isStoredAsNewAndReservesQuantityTimesLimitPrice() throws Exception {
+        deposit("1000");
+
+        long orderId = readJson(place(order("BUY", "LIMIT", aapl, 5, "90.5", null))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.type").value("LIMIT"))
+                .andExpect(jsonPath("$.status").value("NEW"))
+                .andExpect(jsonPath("$.limitPrice").value(90.5))
+                .andExpect(jsonPath("$.reservedAmount").value(452.5))
+                .andExpect(jsonPath("$.filledPrice").doesNotExist())
+                .andExpect(jsonPath("$.filledAt").doesNotExist()))
+                .get("id").asLong();
+
+        assertAccount("1000.0000", "452.5000");
+        assertThat(jdbc.queryForObject("SELECT reserved_amount FROM orders WHERE id = ?", BigDecimal.class, orderId))
+                .isEqualTo(new BigDecimal("452.5000"));
+        // nothing is bought yet
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM positions", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM transactions WHERE type = 'BUY'", Long.class)).isZero();
+    }
+
+    @Test
+    void BR42_buyStop_reservesStopPriceWithSlippageBuffer() throws Exception {
+        deposit("1000");
+
+        // 3 * 100.0001 * 1.05 = 315.000315 -> 315.0003
+        place(order("BUY", "STOP", aapl, 3, null, "100.0001"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("NEW"))
+                .andExpect(jsonPath("$.reservedAmount").value(315.0003));
+
+        assertAccount("1000.0000", "315.0003");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"LIMIT", "STOP"})
+    void BR42_pendingBuyAboveAvailableFunds_returns409AndNothingChanges(String type) throws Exception {
+        deposit("1000");
+
+        // LIMIT needs 1000.01, STOP needs 952.39 * 1.05 = 1000.0095
+        place(order("BUY", type, aapl, 1, type.equals("LIMIT") ? "1000.01" : null,
+                type.equals("STOP") ? "952.39" : null))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_FUNDS"));
+
+        assertNothingExecuted("1000.0000");
+        assertAccount("1000.0000", "0.0000");
+    }
+
+    @Test
+    void BR42_reservedFunds_cannotBeSpentOrWithdrawnAgain() throws Exception {
+        deposit("1000");
+        place(order("BUY", "LIMIT", aapl, 6, "100", null)).andExpect(status().isCreated());   // reserves 600
+
+        place(order("BUY", "LIMIT", aapl, 5, "100", null))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_FUNDS"));
+        place(order("BUY", "MARKET", aapl, 5, null, null))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_FUNDS"));
+        mvc.perform(withBearer(post("/api/account/withdraw"), token)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"amount\":400.0001}"))
+                .andExpect(status().isConflict());
+
+        place(order("BUY", "LIMIT", aapl, 4, "100", null)).andExpect(status().isCreated());
+        assertAccount("1000.0000", "1000.0000");
+    }
+
+    @Test
+    void BR42_blockedBalanceEqualsSumOfReservationsOfNewOrders() throws Exception {
+        deposit("10000");
+        place(order("BUY", "LIMIT", aapl, 3, "10.1234", null)).andExpect(status().isCreated());
+        place(order("BUY", "STOP", aapl, 7, null, "99.99")).andExpect(status().isCreated());
+        place(order("BUY", "MARKET", aapl, 2, null, null)).andExpect(status().isCreated());
+        place(order("BUY", "LIMIT", aapl, 1, "0.0001", null)).andExpect(status().isCreated());
+
+        BigDecimal reserved = jdbc.queryForObject(
+                "SELECT SUM(reserved_amount) FROM orders WHERE user_id = ? AND status = 'NEW'", BigDecimal.class, userId);
+        BigDecimal blocked = jdbc.queryForObject(
+                "SELECT blocked_balance FROM accounts WHERE user_id = ?", BigDecimal.class, userId);
+        // 30.3702 + 734.9265 + 0.0001
+        assertThat(blocked).isEqualTo(new BigDecimal("765.2968")).isEqualByComparingTo(reserved);
     }
 
     @Test
@@ -365,6 +439,12 @@ class OrderControllerTest extends IntegrationTest {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    private void assertAccount(String expectedBalance, String expectedBlocked) {
+        assertThat(jdbc.queryForMap("SELECT balance, blocked_balance FROM accounts WHERE user_id = ?", userId))
+                .containsEntry("balance", new BigDecimal(expectedBalance))
+                .containsEntry("blocked_balance", new BigDecimal(expectedBlocked));
+    }
 
     private int positionQuantity() {
         return jdbc.queryForObject("SELECT quantity FROM positions WHERE user_id = ?", Integer.class, userId);

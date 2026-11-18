@@ -1,5 +1,6 @@
 package com.ex.tradingPlatform.services;
 
+import com.ex.tradingPlatform.config.OrderProperties;
 import com.ex.tradingPlatform.dto.OrderResponse;
 import com.ex.tradingPlatform.dto.PageResponse;
 import com.ex.tradingPlatform.dto.PlaceOrderRequest;
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
 
@@ -44,6 +46,7 @@ public class OrderService {
     static final String INSUFFICIENT_SHARES = "INSUFFICIENT_SHARES";
     static final String ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
     static final String ORDER_NOT_FOUND = "ORDER_NOT_FOUND";
+    private static final int MONEY_SCALE = 4;
     // id breaks ties between orders created at the same instant
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
@@ -54,38 +57,39 @@ public class OrderService {
     private final InstrumentRepository instrumentRepository;
     private final PriceTickRepository priceTickRepository;
     private final MarketHoursService marketHours;
+    private final OrderProperties orderProperties;
     private final Clock clock;
 
     /**
-     * Places an order and, for MARKET, fills it immediately at the latest price. The order, account,
-     * position and ledger entry change in one DB transaction; a rejected order leaves no trace.
+     * Places an order. MARKET is filled immediately at the latest price; LIMIT and STOP stay NEW and
+     * reserve what they may later need. Everything changes in one DB transaction, so a rejected order
+     * leaves no trace.
      */
     @Transactional
     public OrderResponse place(Long userId, PlaceOrderRequest request) {
-        if (request.type() != OrderType.MARKET) {
-            throw new BusinessException(HttpStatus.NOT_IMPLEMENTED, ORDER_TYPE_NOT_SUPPORTED,
-                    request.type() + " orders are not supported yet.");
-        }
         Instrument instrument = tradableInstrument(request.instrumentId());
         if (!marketHours.isOpen()) {
             throw new BusinessException(HttpStatus.CONFLICT, MARKET_CLOSED, "The market is closed.");
         }
-        BigDecimal price = priceTickRepository.findFirstByInstrumentIdOrderByTsDescIdDesc(instrument.getId())
-                .orElseThrow(() -> new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY, INSTRUMENT_NOT_PRICED,
-                        "Instrument has no price yet."))
-                .getPrice();
 
-        // locking the account first serializes all order executions of one user
-        Account account = accountRepository.findByUserIdForUpdate(userId)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, ACCOUNT_NOT_FOUND, "Account not found."));
+        // locking the account first serializes all order operations of one user
+        Account account = lockAccount(userId);
         Instant now = clock.instant();
-        Order order = new Order(account.getUser(), instrument, request.side(), OrderType.MARKET,
-                request.quantity(), null, null, now);
+        Order order = new Order(account.getUser(), instrument, request.side(), request.type(),
+                request.quantity(), request.limitPrice(), request.stopPrice(), now);
 
-        if (request.side() == OrderSide.BUY) {
-            fillBuy(account, order, price, now);
+        if (request.type() == OrderType.MARKET) {
+            BigDecimal price = latestPrice(instrument);
+            if (request.side() == OrderSide.BUY) {
+                fillBuy(account, order, price, now);
+            } else {
+                fillSell(account, order, price, now);
+            }
+        } else if (request.side() == OrderSide.BUY) {
+            reserveFunds(account, order, now);
         } else {
-            fillSell(account, order, price, now);
+            throw new BusinessException(HttpStatus.NOT_IMPLEMENTED, ORDER_TYPE_NOT_SUPPORTED,
+                    "SELL " + request.type() + " orders are not supported yet.");
         }
         return OrderResponse.from(order);
     }
@@ -117,6 +121,35 @@ public class OrderService {
                     "Instrument is not active.");
         }
         return instrument;
+    }
+
+    private Account lockAccount(Long userId) {
+        return accountRepository.findByUserIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, ACCOUNT_NOT_FOUND, "Account not found."));
+    }
+
+    private BigDecimal latestPrice(Instrument instrument) {
+        return priceTickRepository.findFirstByInstrumentIdOrderByTsDescIdDesc(instrument.getId())
+                .orElseThrow(() -> new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY, INSTRUMENT_NOT_PRICED,
+                        "Instrument has no price yet."))
+                .getPrice();
+    }
+
+    /** BUY LIMIT reserves quantity x limit price; BUY STOP reserves quantity x stop price x buffer factor. */
+    private void reserveFunds(Account account, Order order, Instant now) {
+        BigDecimal quantity = BigDecimal.valueOf(order.getQuantity());
+        BigDecimal amount = order.getType() == OrderType.LIMIT
+                ? order.getLimitPrice().multiply(quantity)
+                : order.getStopPrice().multiply(quantity).multiply(orderProperties.stopBuyReserveFactor());
+        amount = amount.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        if (amount.compareTo(account.getAvailableBalance()) > 0) {
+            throw new BusinessException(HttpStatus.CONFLICT, INSUFFICIENT_FUNDS,
+                    "Reservation exceeds available funds.");
+        }
+
+        account.reserve(amount, now);
+        order.reserveFunds(amount);
+        orderRepository.save(order);
     }
 
     private void fillBuy(Account account, Order order, BigDecimal price, Instant now) {

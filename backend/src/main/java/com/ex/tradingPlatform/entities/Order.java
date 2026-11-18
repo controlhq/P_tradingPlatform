@@ -91,6 +91,14 @@ public class Order {
         this.updatedAt = now;
     }
 
+    /** Records the funds blocked for this pending BUY order (mirrored in the account's blocked balance). */
+    public void reserveFunds(BigDecimal amount) {
+        if (side != OrderSide.BUY || status != OrderStatus.NEW) {
+            throw new IllegalStateException("Only a NEW BUY order can reserve funds");
+        }
+        this.reservedAmount = amount;
+    }
+
     public void fill(BigDecimal price, Instant now) {
         if (status != OrderStatus.NEW) {
             throw new IllegalStateException("Only a NEW order can be filled, was " + status);
