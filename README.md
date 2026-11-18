@@ -152,6 +152,7 @@ Zwykłego użytkownika zakładasz przez `POST /api/auth/register` (rola `USER`).
 | POST | `/api/auth/refresh` | publiczny | rotacja tokenów (stary refresh token zostaje unieważniony) |
 | POST | `/api/auth/logout` | publiczny | unieważnia refresh token → 204 |
 | GET | `/api/users/me` | zalogowany | dane bieżącego użytkownika |
+| GET | `/api/account` | zalogowany | własne konto gotówkowe `{balance, blockedBalance, available}`; `available = balance − blockedBalance` |
 | GET | `/api/instruments` | zalogowany | aktywne instrumenty z ostatnią ceną `{id, symbol, name, active, lastPrice, lastPriceAt}` |
 | GET | `/api/instruments/{id}` | zalogowany | szczegóły instrumentu (także nieaktywnego); 404 `INSTRUMENT_NOT_FOUND` |
 | GET | `/api/instruments/{id}/prices?from=&to=&limit=` | zalogowany | historia cen `[{price, ts}]` rosnąco po czasie: ostatnie `limit` ticków z `[from, to]` (domyślnie 200, max 1000; `from`/`to` w ISO-8601, np. `2026-01-01T10:00:00Z`); 400 `INVALID_TIME_RANGE` gdy `from` > `to` |

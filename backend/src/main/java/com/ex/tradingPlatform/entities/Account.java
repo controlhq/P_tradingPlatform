@@ -52,4 +52,8 @@ public class Account {
         this.createdAt = now;
         this.updatedAt = now;
     }
+
+    public BigDecimal getAvailableBalance() {
+        return balance.subtract(blockedBalance);
+    }
 }
