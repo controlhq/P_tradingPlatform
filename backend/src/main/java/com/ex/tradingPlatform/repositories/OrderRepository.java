@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 /** Read queries fetch the instrument too, because every response includes its symbol. */
@@ -22,4 +23,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByIdAndUserId(Long id, Long userId);
 
     long countByUserIdAndStatus(Long userId, OrderStatus status);
+
+    /** Pending orders of an instrument in the order they were placed; the user is needed to lock the account. */
+    @EntityGraph(attributePaths = "user")
+    List<Order> findByInstrumentIdAndStatusOrderByCreatedAtAscIdAsc(Long instrumentId, OrderStatus status);
 }

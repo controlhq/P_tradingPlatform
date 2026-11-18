@@ -11,15 +11,12 @@ import com.ex.tradingPlatform.entities.OrderSide;
 import com.ex.tradingPlatform.entities.OrderStatus;
 import com.ex.tradingPlatform.entities.OrderType;
 import com.ex.tradingPlatform.entities.Position;
-import com.ex.tradingPlatform.entities.Transaction;
-import com.ex.tradingPlatform.entities.TransactionType;
 import com.ex.tradingPlatform.exceptions.BusinessException;
 import com.ex.tradingPlatform.repositories.AccountRepository;
 import com.ex.tradingPlatform.repositories.InstrumentRepository;
 import com.ex.tradingPlatform.repositories.OrderRepository;
 import com.ex.tradingPlatform.repositories.PositionRepository;
 import com.ex.tradingPlatform.repositories.PriceTickRepository;
-import com.ex.tradingPlatform.repositories.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -54,11 +51,11 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final AccountRepository accountRepository;
     private final PositionRepository positionRepository;
-    private final TransactionRepository transactionRepository;
     private final InstrumentRepository instrumentRepository;
     private final PriceTickRepository priceTickRepository;
     private final MarketHoursService marketHours;
     private final OrderProperties orderProperties;
+    private final TradeSettlementService tradeSettlement;
     private final Clock clock;
 
     /**
@@ -204,41 +201,14 @@ public class OrderService {
     }
 
     private void fillBuy(Account account, Order order, BigDecimal price, Instant now) {
-        BigDecimal cost = price.multiply(BigDecimal.valueOf(order.getQuantity()));
-        if (cost.compareTo(account.getAvailableBalance()) > 0) {
+        if (TradeSettlementService.value(price, order.getQuantity()).compareTo(account.getAvailableBalance()) > 0) {
             throw new BusinessException(HttpStatus.CONFLICT, INSUFFICIENT_FUNDS,
                     "Order value exceeds available funds.");
         }
-
-        account.withdraw(cost, now);
-        order.fill(price, now);
-        orderRepository.save(order);
-
-        Long userId = account.getUser().getId();
-        Long instrumentId = order.getInstrument().getId();
-        positionRepository.findByUserIdAndInstrumentId(userId, instrumentId).ifPresentOrElse(
-                position -> position.add(order.getQuantity(), price, now),
-                () -> positionRepository.save(
-                        new Position(account.getUser(), order.getInstrument(), order.getQuantity(), price, now)));
-
-        transactionRepository.save(new Transaction(
-                account.getUser(), order, TransactionType.BUY, cost, account.getBalance(), now));
+        tradeSettlement.settleBuy(account, order, price, now);
     }
 
     private void fillSell(Account account, Order order, BigDecimal price, Instant now) {
-        Position position = freePosition(order);
-
-        BigDecimal proceeds = price.multiply(BigDecimal.valueOf(order.getQuantity()));
-        account.deposit(proceeds, now);
-        order.fill(price, now);
-        orderRepository.save(order);
-
-        position.remove(order.getQuantity(), now);
-        if (position.getQuantity() == 0) {
-            positionRepository.delete(position);
-        }
-
-        transactionRepository.save(new Transaction(
-                account.getUser(), order, TransactionType.SELL, proceeds, account.getBalance(), now));
+        tradeSettlement.settleSell(account, order, freePosition(order), price, now);
     }
 }
