@@ -34,6 +34,8 @@ public class SecurityConfig {
             "/api/auth/**",
             // authenticated by the token query parameter in StreamService
             "/api/stream",
+            // container healthcheck; it is the only actuator endpoint exposed over HTTP
+            "/actuator/health",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**"
