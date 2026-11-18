@@ -12,9 +12,10 @@ Symulator giełdy: rejestracja i logowanie (JWT), konto gotówkowe, instrumenty,
 7. [Swagger / OpenAPI](#swagger--openapi)
 8. [Konto administratora](#konto-administratora)
 9. [API: przegląd endpointów](#api-przegląd-endpointów)
-10. [Migracje bazy (Flyway)](#migracje-bazy-flyway)
-11. [Rozwiązywanie problemów](#rozwiązywanie-problemów)
-12. [Diagram ERD](#diagram-erd)
+10. [Advanced feature](#advanced-feature)
+11. [Migracje bazy (Flyway)](#migracje-bazy-flyway)
+12. [Rozwiązywanie problemów](#rozwiązywanie-problemów)
+13. [Diagram ERD](#diagram-erd)
 
 ## Struktura repozytorium
 ```
@@ -183,6 +184,56 @@ $t = Invoke-RestMethod -Method Post http://localhost:8080/api/auth/login `
      -ContentType 'application/json' -Body '{"email":"admin@trading.local","password":"Admin12345"}'
 Invoke-RestMethod http://localhost:8080/api/users/me -Headers @{ Authorization = "Bearer $($t.accessToken)" }
 ```
+
+## Advanced feature
+Rynek „żyje” bez udziału użytkowników: ceny zmieniają się same, zlecenia oczekujące wykonują się,
+gdy cena osiągnie zadany poziom, a przeglądarka dostaje ceny i zmiany statusów zleceń na żywo.
+Reguły biznesowe: BR23–BR26 (rynek), BR42–BR51 (zlecenia oczekujące i matching), BR53–BR55 (SSE).
+
+### Symulator rynku
+- Co `MARKET_TICK_INTERVAL_MS` (domyślnie 3 s) każdy aktywny instrument dostaje nową cenę:
+  błądzenie losowe, `cena × (1 + N(0,1) × MARKET_VOLATILITY)`, jeden tick spada maksymalnie o 50%,
+  cena nigdy nie jest ≤ 0.
+- Działa tylko w godzinach sesji (pn–pt 09:00–17:00 Europe/Warsaw); na demo `MARKET_ALWAYS_OPEN=true`.
+  Stan rynku: `GET /api/market/status`.
+- Co godzinę usuwane są ceny starsze niż `MARKET_TICK_RETENTION_DAYS` (ostatnia cena instrumentu zostaje zawsze).
+- Czas pochodzi z wstrzykiwanego `Clock`, a losowość z beana `Random`, więc testy są deterministyczne.
+
+### Matching engine LIMIT/STOP
+- Złożone zlecenie LIMIT/STOP czeka ze statusem `NEW` i rezerwuje to, czego może potrzebować:
+  BUY blokuje środki (LIMIT: `ilość × limit`, STOP: `ilość × stop × 1.05` na poślizg), SELL blokuje akcje.
+  Tych samych środków ani akcji nie da się zarezerwować dwa razy; max 20 otwartych zleceń na użytkownika.
+- Po zatwierdzeniu każdego ticka zlecenia danego instrumentu są sprawdzane od najstarszego:
+  LIMIT BUY gdy `cena ≤ limit`, LIMIT SELL gdy `cena ≥ limit`, STOP BUY gdy `cena ≥ stop`, STOP SELL gdy `cena ≤ stop`.
+- Wypełnienie następuje po cenie ticka. BUY zwalnia całą rezerwację i płaci faktyczny koszt: nadwyżka wraca
+  na konto, brak dopłaca się z wolnej gotówki, a gdy i tego nie starcza, zlecenie dostaje status `REJECTED`.
+- Każde zlecenie jest wykonywane w osobnej transakcji, więc błąd jednego nie blokuje pozostałych.
+  Wszystkie operacje jednego użytkownika (zlecenia, anulowanie, wypełnienia, wpłaty) blokują najpierw jego
+  konto (`SELECT … FOR UPDATE`), dzięki czemu np. anulowanie równoległe z wypełnieniem nie zwolni rezerwacji dwa razy.
+- Anulowanie: `DELETE /api/orders/{id}` (także przy zamkniętym rynku).
+
+### Ceny i statusy zleceń na żywo (Server-Sent Events)
+`GET /api/stream?token=<accessToken>` otwiera strumień `text/event-stream`. Token jest w adresie, bo
+`EventSource` w przeglądarce nie potrafi wysłać nagłówka `Authorization`; backend sprawdza go tym samym
+`JwtDecoder`em co nagłówek Bearer (podpis i ważność). Uwaga: adres z tokenem może trafić do logów proxy i historii
+przeglądarki, dlatego używaj krótkotrwałego access tokenu (15 min) i otwieraj strumień ponownie po odświeżeniu tokenu.
+
+| Zdarzenie | Do kogo | Dane |
+|---|---|---|
+| `price` | wszyscy podłączeni | `{instrumentId, symbol, price, ts}` po każdym nowym ticku |
+| `order` | tylko właściciel zlecenia | `{orderId, status, filledPrice}` gdy matching zmieni status na `FILLED` lub `REJECTED` |
+
+Zdarzenia są wysyłane dopiero po zatwierdzeniu transakcji, więc klient nie zobaczy zmiany, która została wycofana.
+Co 15 s serwer wysyła komentarz `:heartbeat`; zerwane połączenia są usuwane z rejestru, a `EventSource`
+łączy się ponownie sam.
+
+Przykład w przeglądarce (frontend na `CORS_ALLOWED_ORIGINS`):
+```js
+const source = new EventSource(`http://localhost:8080/api/stream?token=${accessToken}`);
+source.addEventListener('price', e => console.log('price', JSON.parse(e.data)));
+source.addEventListener('order', e => console.log('order', JSON.parse(e.data)));
+```
+Z konsoli: `curl -N "http://localhost:8080/api/stream?token=<accessToken>"`.
 
 ## Migracje bazy (Flyway)
 - Pliki: `backend/src/main/resources/db/migration/V<numer>__<opis>.sql`

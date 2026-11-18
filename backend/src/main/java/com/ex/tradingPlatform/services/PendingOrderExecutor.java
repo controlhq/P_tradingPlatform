@@ -10,6 +10,7 @@ import com.ex.tradingPlatform.repositories.OrderRepository;
 import com.ex.tradingPlatform.repositories.PositionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ public class PendingOrderExecutor {
     private final OrderRepository orderRepository;
     private final PositionRepository positionRepository;
     private final TradeSettlementService tradeSettlement;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
     /**
@@ -52,6 +54,8 @@ public class PendingOrderExecutor {
         } else {
             fillSell(account, order, price, now);
         }
+        // delivered to listeners only if this transaction commits
+        events.publishEvent(new OrderStatusChangedEvent(userId, orderId, order.getStatus(), order.getFilledPrice()));
         return order.getStatus();
     }
 

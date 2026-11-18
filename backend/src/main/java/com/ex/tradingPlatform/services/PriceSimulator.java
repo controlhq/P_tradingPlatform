@@ -63,7 +63,8 @@ public class PriceSimulator {
                 .map(i -> new PriceTick(i, nextPrice(latestByInstrument.get(i.getId()).getPrice()), now))
                 .toList();
         priceTickRepository.saveAll(ticks);
-        ticks.forEach(t -> events.publishEvent(new PriceTickCreatedEvent(t.getInstrument().getId(), t.getPrice())));
+        ticks.forEach(t -> events.publishEvent(new PriceTickCreatedEvent(
+                t.getInstrument().getId(), t.getInstrument().getSymbol(), t.getPrice(), t.getTs())));
         return ticks.size();
     }
 

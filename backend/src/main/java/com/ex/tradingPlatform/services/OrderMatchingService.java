@@ -24,7 +24,11 @@ public class OrderMatchingService {
     private final OrderRepository orderRepository;
     private final PendingOrderExecutor executor;
 
-    /** Runs after the tick is committed, so orders are never filled at a price that was rolled back. */
+    /**
+     * Runs after the tick is committed, so orders are never filled at a price that was rolled back;
+     * ordered after the live price broadcast (the entity named Order forces the qualified annotation).
+     */
+    @org.springframework.core.annotation.Order(2)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPriceTickCreated(PriceTickCreatedEvent event) {
         onPriceTick(event.instrumentId(), event.price());
