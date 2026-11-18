@@ -14,12 +14,14 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,6 +38,9 @@ class ConcurrencyTest extends IntegrationTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private OrderMatchingService matching;
 
     private long userId;
     private long aapl;
@@ -65,7 +70,80 @@ class ConcurrencyTest extends IntegrationTest {
         assertLedgerMatchesBalance();
     }
 
+    /**
+     * Another NEW order stays untouched in the background: a double release of the cancelled/filled
+     * order's reservation would eat into its reservation and break blocked_balance = sum of reservations.
+     */
+    @RepeatedTest(10)
+    void BR45_BR52_cancelRacingWithFillOfPendingBuy_releasesReservationExactlyOnce() throws Exception {
+        accountService.deposit(userId, new BigDecimal("1000"));
+        long racing = orderService.place(userId, limit(OrderSide.BUY, 5, "100")).id();   // reserves 500
+        orderService.place(userId, limit(OrderSide.BUY, 2, "50"));                       // reserves 100, not hit at 90
+        AtomicInteger filled = new AtomicInteger();
+
+        List<Outcome> outcomes = runConcurrently(
+                () -> orderService.cancel(userId, racing),
+                () -> filled.addAndGet(matching.onPriceTick(aapl, new BigDecimal("90"))));
+
+        String status = statusOf(racing);
+        if (status.equals("CANCELLED")) {
+            assertThat(outcomes).containsExactly(Outcome.OK, Outcome.OK);
+            assertThat(filled).hasValue(0);
+            assertThat(balance()).isEqualTo(new BigDecimal("1000.0000"));
+        } else {
+            assertThat(status).isEqualTo("FILLED");
+            assertThat(outcomes).containsExactly(Outcome.ORDER_NOT_CANCELLABLE, Outcome.OK);
+            assertThat(filled).hasValue(1);
+            assertThat(balance()).isEqualTo(new BigDecimal("550.0000"));
+        }
+        assertThat(blockedBalance()).isEqualTo(new BigDecimal("100.0000")).isEqualByComparingTo(reservedByNewOrders());
+        assertLedgerMatchesBalance();
+    }
+
+    @RepeatedTest(10)
+    void BR45_BR52_cancelRacingWithFillOfPendingSell_unblocksSharesExactlyOnce() throws Exception {
+        accountService.deposit(userId, new BigDecimal("1000"));
+        orderService.place(userId, new PlaceOrderRequest(OrderSide.BUY, OrderType.MARKET, aapl, 10, null, null));
+        long racing = orderService.place(userId, limit(OrderSide.SELL, 4, "120")).id();
+        orderService.place(userId, limit(OrderSide.SELL, 3, "200"));                     // not hit at 125
+
+        List<Outcome> outcomes = runConcurrently(
+                () -> orderService.cancel(userId, racing),
+                () -> matching.onPriceTick(aapl, new BigDecimal("125")));
+
+        Map<String, Object> position = jdbc.queryForMap(
+                "SELECT quantity, blocked_quantity FROM positions WHERE user_id = ?", userId);
+        if (statusOf(racing).equals("CANCELLED")) {
+            assertThat(outcomes).containsExactly(Outcome.OK, Outcome.OK);
+            assertThat(position).containsEntry("quantity", 10);
+        } else {
+            assertThat(statusOf(racing)).isEqualTo("FILLED");
+            assertThat(outcomes).containsExactly(Outcome.ORDER_NOT_CANCELLABLE, Outcome.OK);
+            assertThat(position).containsEntry("quantity", 6);
+        }
+        assertThat(position).containsEntry("blocked_quantity", 3);
+        assertLedgerMatchesBalance();
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    private PlaceOrderRequest limit(OrderSide side, int quantity, String limitPrice) {
+        return new PlaceOrderRequest(side, OrderType.LIMIT, aapl, quantity, new BigDecimal(limitPrice), null);
+    }
+
+    private String statusOf(long orderId) {
+        return jdbc.queryForObject("SELECT status FROM orders WHERE id = ?", String.class, orderId);
+    }
+
+    private BigDecimal blockedBalance() {
+        return jdbc.queryForObject("SELECT blocked_balance FROM accounts WHERE user_id = ?", BigDecimal.class, userId);
+    }
+
+    private BigDecimal reservedByNewOrders() {
+        return jdbc.queryForObject(
+                "SELECT COALESCE(SUM(reserved_amount), 0) FROM orders WHERE user_id = ? AND status = 'NEW'",
+                BigDecimal.class, userId);
+    }
 
     enum Outcome { OK, INSUFFICIENT_FUNDS, ORDER_NOT_CANCELLABLE }
 
