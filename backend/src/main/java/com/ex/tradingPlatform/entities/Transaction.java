@@ -33,6 +33,11 @@ public class Transaction {
     @JoinColumn(name = "user_id", nullable = false, updatable = false)
     private User user;
 
+    /** Set for BUY and SELL, null for DEPOSIT and WITHDRAW. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", updatable = false)
+    private Order order;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10, updatable = false)
     private TransactionType type;
@@ -47,7 +52,13 @@ public class Transaction {
     private Instant createdAt;
 
     public Transaction(User user, TransactionType type, BigDecimal amount, BigDecimal balanceAfter, Instant now) {
+        this(user, null, type, amount, balanceAfter, now);
+    }
+
+    public Transaction(User user, Order order, TransactionType type, BigDecimal amount, BigDecimal balanceAfter,
+                       Instant now) {
         this.user = user;
+        this.order = order;
         this.type = type;
         this.amount = amount;
         this.balanceAfter = balanceAfter;
