@@ -23,3 +23,5 @@ Each rule has a stable ID (`BRxx`). Tests covering a rule are named `BRxx_descri
 | BR17 | Logout revokes the given refresh token; it is idempotent and always returns 204. | `AuthService.logout` |
 | BR18 | The current price of an instrument is its most recent price tick (latest `ts`; ticks with equal `ts` are ordered by id). | `PriceTickRepository` |
 | BR19 | The instrument list shows only active instruments, ordered by symbol. An inactive instrument is still returned by id (with `active=false`); an unknown id returns 404 `INSTRUMENT_NOT_FOUND`. | `InstrumentService` |
+| BR20 | An instrument symbol matches `^[A-Z0-9.]{1,16}$` and is unique; a duplicate returns 409 `SYMBOL_TAKEN`. | `CreateInstrumentRequest`, `InstrumentService.create`, DB `uq_instruments_symbol`, `ck_instruments_symbol` |
+| BR21 | Only an ADMIN creates instruments. A new instrument is active and gets its first price tick (the starting price, > 0, rounded HALF_UP to 4 places) in the same transaction. | `AdminInstrumentController`, `InstrumentService.create` |

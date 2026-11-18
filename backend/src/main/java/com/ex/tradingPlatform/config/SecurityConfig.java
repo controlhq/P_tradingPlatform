@@ -46,6 +46,8 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS).permitAll()
+                        // checked before the controller, so non-admins never see validation errors
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .bearerTokenResolver(bearerTokenResolver())
@@ -79,7 +81,7 @@ public class SecurityConfig {
 
     @Bean
     CorsConfigurationSource corsConfigurationSource(
-            @Value("${app.cors.allowed-origins:http://localhost:5173}") List<String> allowedOrigins) {
+            @Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(allowedOrigins);
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
