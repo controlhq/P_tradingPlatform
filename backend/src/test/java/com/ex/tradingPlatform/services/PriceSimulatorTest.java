@@ -119,7 +119,7 @@ class PriceSimulatorTest extends IntegrationTest {
     private PriceSimulator simulator(Instant now, boolean alwaysOpen, Random random) {
         MarketProperties properties = new MarketProperties(
                 LocalTime.of(9, 0), LocalTime.of(17, 0), ZoneId.of("Europe/Warsaw"),
-                EnumSet.range(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), alwaysOpen, 3000, 0.005);
+                EnumSet.range(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), alwaysOpen, 3000, 0.005, 7);
         Clock clock = Clock.fixed(now, ZoneOffset.UTC);
         return new PriceSimulator(instrumentRepository, priceTickRepository,
                 new MarketHoursService(properties, clock), properties, random, clock);

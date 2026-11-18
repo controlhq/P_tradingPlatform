@@ -16,7 +16,8 @@ public record MarketProperties(
         @DefaultValue({"MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"}) Set<DayOfWeek> tradingDays,
         @DefaultValue("false") boolean alwaysOpen,
         @DefaultValue("3000") long tickIntervalMs,
-        @DefaultValue("0.005") double volatility
+        @DefaultValue("0.005") double volatility,
+        @DefaultValue("7") int tickRetentionDays
 ) {
 
     public MarketProperties {
@@ -31,6 +32,9 @@ public record MarketProperties(
         }
         if (volatility <= 0 || volatility >= 1) {
             throw new IllegalArgumentException("market.volatility must be in (0, 1)");
+        }
+        if (tickRetentionDays < 1) {
+            throw new IllegalArgumentException("market.tick-retention-days must be at least 1");
         }
         tradingDays = Set.copyOf(tradingDays);
     }

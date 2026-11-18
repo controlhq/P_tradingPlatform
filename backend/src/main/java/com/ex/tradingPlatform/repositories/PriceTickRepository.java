@@ -3,6 +3,7 @@ package com.ex.tradingPlatform.repositories;
 import com.ex.tradingPlatform.entities.PriceTick;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -19,6 +20,19 @@ public interface PriceTickRepository extends JpaRepository<PriceTick, Long> {
     /** Newest ticks first, both bounds inclusive. */
     List<PriceTick> findByInstrumentIdAndTsBetweenOrderByTsDescIdDesc(
             Long instrumentId, Instant from, Instant to, Limit limit);
+
+    /**
+     * Deletes ticks older than {@code cutoff} except the latest tick of each instrument
+     * (a tick is kept unless a newer one exists, using the BR18 ordering).
+     */
+    @Modifying
+    @Query(value = """
+            DELETE FROM price_ticks t
+            WHERE t.ts < :cutoff
+              AND EXISTS (SELECT 1 FROM price_ticks n
+                          WHERE n.instrument_id = t.instrument_id
+                            AND (n.ts > t.ts OR (n.ts = t.ts AND n.id > t.id)))""", nativeQuery = true)
+    int deleteOlderThanExceptLatest(@Param("cutoff") Instant cutoff);
 
     /** Latest tick of each given instrument in one query (instruments without ticks are absent). */
     @Query(value = """

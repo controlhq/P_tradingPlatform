@@ -79,14 +79,14 @@ class MarketHoursServiceTest {
     @Test
     void properties_openAfterClose_areRejected() {
         assertThatThrownBy(() -> new MarketProperties(LocalTime.of(17, 0), LocalTime.of(9, 0),
-                ZoneId.of("Europe/Warsaw"), EnumSet.of(DayOfWeek.MONDAY), false, 3000, 0.005))
+                ZoneId.of("Europe/Warsaw"), EnumSet.of(DayOfWeek.MONDAY), false, 3000, 0.005, 7))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     private static MarketHoursService service(Instant now, boolean alwaysOpen) {
         MarketProperties properties = new MarketProperties(
                 LocalTime.of(9, 0), LocalTime.of(17, 0), ZoneId.of("Europe/Warsaw"),
-                EnumSet.range(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), alwaysOpen, 3000, 0.005);
+                EnumSet.range(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), alwaysOpen, 3000, 0.005, 7);
         return new MarketHoursService(properties, Clock.fixed(now, ZoneOffset.UTC));
     }
 }

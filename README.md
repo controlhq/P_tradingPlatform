@@ -52,6 +52,7 @@ i uzupełnij w `.env`:
 | `MARKET_TICK_INTERVAL_MS` | co ile ms symulator generuje nowe ceny (domyślnie `3000`) |
 | `MARKET_VOLATILITY` | odchylenie standardowe zmiany ceny w jednym ticku, np. `0.005` = 0,5% |
 | `MARKET_SIMULATOR_ENABLED` | `false` wyłącza generowanie cen (domyślnie `true`; w testach wyłączone) |
+| `MARKET_TICK_RETENTION_DAYS` | co godzinę usuwane są ceny starsze niż tyle dni; ostatnia cena każdego instrumentu zostaje zawsze (domyślnie `7`) |
 
 Zmienne ustawione w systemie mają pierwszeństwo przed `.env`.
 
