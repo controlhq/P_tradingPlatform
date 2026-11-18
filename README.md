@@ -146,6 +146,8 @@ Zwykłego użytkownika zakładasz przez `POST /api/auth/register` (rola `USER`).
 | POST | `/api/auth/refresh` | publiczny | rotacja tokenów (stary refresh token zostaje unieważniony) |
 | POST | `/api/auth/logout` | publiczny | unieważnia refresh token → 204 |
 | GET | `/api/users/me` | zalogowany | dane bieżącego użytkownika |
+| GET | `/api/instruments` | zalogowany | aktywne instrumenty z ostatnią ceną `{id, symbol, name, active, lastPrice, lastPriceAt}` |
+| GET | `/api/instruments/{id}` | zalogowany | szczegóły instrumentu (także nieaktywnego); 404 `INSTRUMENT_NOT_FOUND` |
 | GET | `/api/admin/ping` | `ADMIN` | test uprawnień → `{"status":"pong"}` |
 
 Błędy zwracane są jako **ProblemDetail** (RFC 9457, `application/problem+json`), np.:
@@ -167,6 +169,7 @@ Invoke-RestMethod http://localhost:8080/api/users/me -Headers @{ Authorization =
 - Zmiana schematu = **nowy plik** z kolejnym numerem. **Nigdy nie edytuj** migracji, która była już uruchomiona,
   bo Flyway wykryje zmianę sumy kontrolnej i aplikacja nie wystartuje.
 - Hibernate działa w trybie `ddl-auto=validate`: tylko sprawdza, czy encje pasują do schematu, niczego nie tworzy.
+- `V4__seed_instruments.sql` dodaje 8 instrumentów (AAPL, MSFT, NVDA, TSLA, AMZN, GOOGL, META, PKO) z ceną startową.
 - Reset lokalnej bazy do zera: `docker compose down -v && docker compose up -d db`, potem start aplikacji.
 
 ## Rozwiązywanie problemów

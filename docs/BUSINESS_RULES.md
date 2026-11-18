@@ -22,3 +22,4 @@ Each rule has a stable ID (`BRxx`). Tests covering a rule are named `BRxx_descri
 | BR16 | Refresh rotates the pair and revokes the old token. Presenting a revoked token revokes all of the user's tokens and returns 401. | `AuthService.refresh` |
 | BR17 | Logout revokes the given refresh token; it is idempotent and always returns 204. | `AuthService.logout` |
 | BR18 | The current price of an instrument is its most recent price tick (latest `ts`; ticks with equal `ts` are ordered by id). | `PriceTickRepository` |
+| BR19 | The instrument list shows only active instruments, ordered by symbol. An inactive instrument is still returned by id (with `active=false`); an unknown id returns 404 `INSTRUMENT_NOT_FOUND`. | `InstrumentService` |
