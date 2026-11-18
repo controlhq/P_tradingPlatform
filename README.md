@@ -159,6 +159,7 @@ Zwykłego użytkownika zakładasz przez `POST /api/auth/register` (rola `USER`).
 | POST | `/api/orders` | zalogowany | zlecenie `{side, type, instrumentId, quantity, limitPrice?, stopPrice?}` → 201; MARKET wykonuje się od razu po ostatniej cenie; 409 `MARKET_CLOSED`/`INSUFFICIENT_FUNDS`/`INSUFFICIENT_SHARES`, 404/422 dla instrumentu; LIMIT/STOP → 501 |
 | GET | `/api/orders?page=&size=&status=` | zalogowany | własne zlecenia od najnowszego (strona jak w `/api/transactions`); `status` = `NEW`/`FILLED`/`CANCELLED`/`REJECTED` |
 | GET | `/api/orders/{id}` | zalogowany | szczegóły własnego zlecenia; cudze lub nieistniejące → 404 `ORDER_NOT_FOUND` |
+| GET | `/api/positions` | zalogowany | własne pozycje po symbolu `{instrumentId, symbol, quantity, blockedQuantity, avgPrice, currentPrice, marketValue, unrealizedPnl, unrealizedPnlPct}` wycenione po ostatniej cenie |
 | GET | `/api/instruments` | zalogowany | aktywne instrumenty z ostatnią ceną `{id, symbol, name, active, lastPrice, lastPriceAt}` |
 | GET | `/api/instruments/{id}` | zalogowany | szczegóły instrumentu (także nieaktywnego); 404 `INSTRUMENT_NOT_FOUND` |
 | GET | `/api/instruments/{id}/prices?from=&to=&limit=` | zalogowany | historia cen `[{price, ts}]` rosnąco po czasie: ostatnie `limit` ticków z `[from, to]` (domyślnie 200, max 1000; `from`/`to` w ISO-8601, np. `2026-01-01T10:00:00Z`); 400 `INVALID_TIME_RANGE` gdy `from` > `to` |
