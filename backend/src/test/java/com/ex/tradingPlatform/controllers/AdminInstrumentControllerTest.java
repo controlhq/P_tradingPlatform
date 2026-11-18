@@ -13,6 +13,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -158,7 +159,110 @@ class AdminInstrumentControllerTest extends IntegrationTest {
         expectFieldError(request("AAPL", "Apple Inc.", null), "initialPrice");
     }
 
+    // ------------------------------------------------------------------ PATCH active
+
+    @Test
+    void update_withoutToken_returns401() throws Exception {
+        long id = createInstrument("AAPL");
+
+        mvc.perform(patch(URL + "/{id}", id).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":false}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void update_asUser_returns403AndLeavesInstrumentActive() throws Exception {
+        long id = createInstrument("AAPL");
+
+        update(userToken, id, "{\"active\":false}")
+                .andExpect(status().isForbidden());
+
+        assertThat(isActive(id)).isTrue();
+    }
+
+    @Test
+    void BR22_deactivate_hidesInstrumentFromListButKeepsDetails() throws Exception {
+        long id = createInstrument("AAPL");
+
+        update(adminToken, id, "{\"active\":false}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.active").value(false))
+                .andExpect(jsonPath("$.lastPrice").value(100));
+
+        mvc.perform(withBearer(get("/api/instruments"), userToken))
+                .andExpect(jsonPath("$", hasSize(0)));
+        mvc.perform(withBearer(get("/api/instruments/{id}", id), userToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(false))
+                .andExpect(jsonPath("$.lastPrice").value(100));
+    }
+
+    @Test
+    void BR22_reactivate_showsInstrumentInListAgain() throws Exception {
+        long id = createInstrument("AAPL");
+        update(adminToken, id, "{\"active\":false}").andExpect(status().isOk());
+
+        update(adminToken, id, "{\"active\":true}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true));
+
+        mvc.perform(withBearer(get("/api/instruments"), userToken))
+                .andExpect(jsonPath("$", hasSize(1)));
+    }
+
+    @Test
+    void BR22_settingSameState_isIdempotent() throws Exception {
+        long id = createInstrument("AAPL");
+
+        update(adminToken, id, "{\"active\":true}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true));
+    }
+
+    @Test
+    void update_unknownId_returns404InstrumentNotFound() throws Exception {
+        update(adminToken, 999, "{\"active\":false}")
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("INSTRUMENT_NOT_FOUND"));
+    }
+
+    @Test
+    void update_missingActive_returns400() throws Exception {
+        long id = createInstrument("AAPL");
+
+        update(adminToken, id, "{}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("active"));
+
+        assertThat(isActive(id)).isTrue();
+    }
+
+    @Test
+    void update_nonBooleanActive_returns400() throws Exception {
+        long id = createInstrument("AAPL");
+
+        update(adminToken, id, "{\"active\":\"maybe\"}")
+                .andExpect(status().isBadRequest());
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    private ResultActions update(String token, long id, String json) throws Exception {
+        return mvc.perform(withBearer(patch(URL + "/{id}", id), token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json));
+    }
+
+    private long createInstrument(String symbol) throws Exception {
+        return readJson(create(adminToken, request(symbol, symbol + " Corp", "100"))
+                .andExpect(status().isCreated()))
+                .get("id").asLong();
+    }
+
+    private boolean isActive(long id) {
+        return jdbc.queryForObject("SELECT active FROM instruments WHERE id = ?", Boolean.class, id);
+    }
 
     private ResultActions create(String token, Map<String, Object> body) throws Exception {
         return mvc.perform(withBearer(post(URL), token)

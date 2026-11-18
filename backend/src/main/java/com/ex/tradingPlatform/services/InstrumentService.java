@@ -2,6 +2,7 @@ package com.ex.tradingPlatform.services;
 
 import com.ex.tradingPlatform.dto.CreateInstrumentRequest;
 import com.ex.tradingPlatform.dto.InstrumentResponse;
+import com.ex.tradingPlatform.dto.UpdateInstrumentRequest;
 import com.ex.tradingPlatform.entities.Instrument;
 import com.ex.tradingPlatform.entities.PriceTick;
 import com.ex.tradingPlatform.exceptions.BusinessException;
@@ -81,6 +82,13 @@ public class InstrumentService {
         BigDecimal price = request.initialPrice().setScale(PRICE_SCALE, RoundingMode.HALF_UP);
         PriceTick tick = priceTickRepository.save(new PriceTick(instrument, price, now));
         return InstrumentResponse.from(instrument, tick);
+    }
+
+    @Transactional
+    public InstrumentResponse update(Long id, UpdateInstrumentRequest request) {
+        Instrument instrument = findOrThrow(id);
+        instrument.setActive(request.active());
+        return toResponse(instrument);
     }
 
     private static BusinessException symbolTaken() {

@@ -150,6 +150,7 @@ Zwykłego użytkownika zakładasz przez `POST /api/auth/register` (rola `USER`).
 | GET | `/api/instruments/{id}` | zalogowany | szczegóły instrumentu (także nieaktywnego); 404 `INSTRUMENT_NOT_FOUND` |
 | GET | `/api/admin/ping` | `ADMIN` | test uprawnień → `{"status":"pong"}` |
 | POST | `/api/admin/instruments` | `ADMIN` | dodanie instrumentu `{symbol, name, initialPrice}` → 201; 409 `SYMBOL_TAKEN` |
+| PATCH | `/api/admin/instruments/{id}` | `ADMIN` | włączenie/wyłączenie instrumentu `{active}`; 404 `INSTRUMENT_NOT_FOUND` |
 
 Błędy zwracane są jako **ProblemDetail** (RFC 9457, `application/problem+json`), np.:
 ```json
