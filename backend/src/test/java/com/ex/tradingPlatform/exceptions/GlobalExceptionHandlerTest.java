@@ -17,6 +17,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -93,6 +94,17 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @WithMockUser
+    void BR52_optimisticLockFailure_returns409ConcurrentModification() throws Exception {
+        mvc.perform(get("/test/optimistic-lock"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("CONCURRENT_MODIFICATION"))
+                .andExpect(jsonPath("$.instance").value("/test/optimistic-lock"))
+                .andExpect(content().string(not(containsString("Account#42"))));
+    }
+
+    @Test
+    @WithMockUser
     void accessDeniedInController_returns403() throws Exception {
         mvc.perform(get("/test/denied"))
                 .andExpect(status().isForbidden())
@@ -156,6 +168,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/business")
         void business() {
             throw new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY, "INSUFFICIENT_FUNDS", "Not enough funds.");
+        }
+
+        @GetMapping("/test/optimistic-lock")
+        void optimisticLock() {
+            throw new ObjectOptimisticLockingFailureException("Account#42", 42L);
         }
 
         @GetMapping("/test/integrity")

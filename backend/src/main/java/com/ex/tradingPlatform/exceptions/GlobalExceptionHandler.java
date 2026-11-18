@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -31,6 +32,8 @@ import java.util.stream.Stream;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    static final String CONCURRENT_MODIFICATION = "CONCURRENT_MODIFICATION";
 
     public record FieldViolation(String field, String message) {
     }
@@ -84,6 +87,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail handleBusiness(BusinessException ex, HttpServletRequest request) {
         ProblemDetail problem = problem(ex.getStatus(), ex.getMessage(), request);
         problem.setProperty("code", ex.getCode());
+        return problem;
+    }
+
+    /** Another request changed the same row (@Version mismatch); the client may simply retry. */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ProblemDetail handleOptimisticLock(OptimisticLockingFailureException ex, HttpServletRequest request) {
+        log.info("Concurrent modification on {}: {}", request.getRequestURI(), ex.getMessage());
+        ProblemDetail problem = problem(HttpStatus.CONFLICT,
+                "The data was changed by another request. Please try again.", request);
+        problem.setProperty("code", CONCURRENT_MODIFICATION);
         return problem;
     }
 
