@@ -155,6 +155,7 @@ Zwykłego użytkownika zakładasz przez `POST /api/auth/register` (rola `USER`).
 | GET | `/api/account` | zalogowany | własne konto gotówkowe `{balance, blockedBalance, available}`; `available = balance − blockedBalance` |
 | POST | `/api/account/deposit` | zalogowany | wpłata `{amount}` (> 0, max 4 miejsca po przecinku, max 1 000 000) → stan konta |
 | POST | `/api/account/withdraw` | zalogowany | wypłata `{amount}` tylko z dostępnych środków → stan konta; 409 `INSUFFICIENT_FUNDS` |
+| GET | `/api/transactions?page=&size=&type=` | zalogowany | własne transakcje od najnowszej `{content, page, size, totalElements, totalPages}`; `size` 1–100 (domyślnie 20), `type` = `DEPOSIT`/`WITHDRAW`/`BUY`/`SELL` |
 | GET | `/api/instruments` | zalogowany | aktywne instrumenty z ostatnią ceną `{id, symbol, name, active, lastPrice, lastPriceAt}` |
 | GET | `/api/instruments/{id}` | zalogowany | szczegóły instrumentu (także nieaktywnego); 404 `INSTRUMENT_NOT_FOUND` |
 | GET | `/api/instruments/{id}/prices?from=&to=&limit=` | zalogowany | historia cen `[{price, ts}]` rosnąco po czasie: ostatnie `limit` ticków z `[from, to]` (domyślnie 200, max 1000; `from`/`to` w ISO-8601, np. `2026-01-01T10:00:00Z`); 400 `INVALID_TIME_RANGE` gdy `from` > `to` |
