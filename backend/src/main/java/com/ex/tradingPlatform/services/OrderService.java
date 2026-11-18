@@ -46,6 +46,7 @@ public class OrderService {
     static final String ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
     static final String ORDER_NOT_FOUND = "ORDER_NOT_FOUND";
     static final String TOO_MANY_OPEN_ORDERS = "TOO_MANY_OPEN_ORDERS";
+    static final String ORDER_NOT_CANCELLABLE = "ORDER_NOT_CANCELLABLE";
     private static final int MONEY_SCALE = 4;
     // id breaks ties between orders created at the same instant
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
@@ -100,6 +101,31 @@ public class OrderService {
         return OrderResponse.from(order);
     }
 
+    /**
+     * Cancels a NEW order and releases what it reserved. Allowed while the market is closed,
+     * because it only gives the user's own funds or shares back.
+     */
+    @Transactional
+    public OrderResponse cancel(Long userId, Long orderId) {
+        Account account = lockAccount(userId);
+        Order order = orderRepository.findByIdAndUserId(orderId, userId).orElseThrow(OrderService::orderNotFound);
+        if (order.getStatus() != OrderStatus.NEW) {
+            throw new BusinessException(HttpStatus.CONFLICT, ORDER_NOT_CANCELLABLE,
+                    "Only a NEW order can be cancelled; this one is " + order.getStatus() + ".");
+        }
+
+        Instant now = clock.instant();
+        if (order.getSide() == OrderSide.BUY) {
+            account.release(order.getReservedAmount(), now);
+        } else {
+            positionRepository.findByUserIdAndInstrumentId(userId, order.getInstrument().getId())
+                    .orElseThrow(() -> new IllegalStateException("Pending SELL order without a position"))
+                    .release(order.getQuantity(), now);
+        }
+        order.cancel(now);
+        return OrderResponse.from(order);
+    }
+
     /** The user's own orders, newest first; {@code status} is an optional filter. */
     @Transactional(readOnly = true)
     public PageResponse<OrderResponse> list(Long userId, OrderStatus status, int page, int size) {
@@ -115,7 +141,11 @@ public class OrderService {
     public OrderResponse get(Long userId, Long orderId) {
         return orderRepository.findByIdAndUserId(orderId, userId)
                 .map(OrderResponse::from)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, ORDER_NOT_FOUND, "Order not found."));
+                .orElseThrow(OrderService::orderNotFound);
+    }
+
+    private static BusinessException orderNotFound() {
+        return new BusinessException(HttpStatus.NOT_FOUND, ORDER_NOT_FOUND, "Order not found.");
     }
 
     private Instrument tradableInstrument(Long instrumentId) {

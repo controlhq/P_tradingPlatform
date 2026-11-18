@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -70,5 +71,16 @@ public class OrderController {
     @ApiResponse(responseCode = "404", description = "No such order of this user (ORDER_NOT_FOUND)")
     public OrderResponse get(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         return orderService.get(Long.valueOf(jwt.getSubject()), id);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Cancel a pending order and release its reserved funds or shares (works when the market is closed)")
+    @ApiResponse(responseCode = "200", description = "Order with status CANCELLED")
+    @ApiResponse(responseCode = "400", description = "Id is not a number")
+    @ApiResponse(responseCode = "401", description = "Missing, invalid or expired access token")
+    @ApiResponse(responseCode = "404", description = "No such order of this user (ORDER_NOT_FOUND)")
+    @ApiResponse(responseCode = "409", description = "Order is not NEW (ORDER_NOT_CANCELLABLE)")
+    public OrderResponse cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return orderService.cancel(Long.valueOf(jwt.getSubject()), id);
     }
 }

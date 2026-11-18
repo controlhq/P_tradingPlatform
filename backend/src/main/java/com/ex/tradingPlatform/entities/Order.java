@@ -99,6 +99,16 @@ public class Order {
         this.reservedAmount = amount;
     }
 
+    /** Callers release the reserved funds or blocked shares before cancelling. */
+    public void cancel(Instant now) {
+        if (status != OrderStatus.NEW) {
+            throw new IllegalStateException("Only a NEW order can be cancelled, was " + status);
+        }
+        this.status = OrderStatus.CANCELLED;
+        this.reservedAmount = BigDecimal.ZERO;
+        this.updatedAt = now;
+    }
+
     public void fill(BigDecimal price, Instant now) {
         if (status != OrderStatus.NEW) {
             throw new IllegalStateException("Only a NEW order can be filled, was " + status);

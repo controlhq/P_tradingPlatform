@@ -159,6 +159,7 @@ Zwykłego użytkownika zakładasz przez `POST /api/auth/register` (rola `USER`).
 | POST | `/api/orders` | zalogowany | zlecenie `{side, type, instrumentId, quantity, limitPrice?, stopPrice?}` → 201; MARKET wykonuje się od razu po ostatniej cenie; LIMIT/STOP zostają jako `NEW`: BUY rezerwuje środki (`reservedAmount`), SELL blokuje akcje; 409 `MARKET_CLOSED`/`INSUFFICIENT_FUNDS`/`INSUFFICIENT_SHARES`/`TOO_MANY_OPEN_ORDERS` (max 20 otwartych), 404/422 dla instrumentu |
 | GET | `/api/orders?page=&size=&status=` | zalogowany | własne zlecenia od najnowszego (strona jak w `/api/transactions`); `status` = `NEW`/`FILLED`/`CANCELLED`/`REJECTED` |
 | GET | `/api/orders/{id}` | zalogowany | szczegóły własnego zlecenia; cudze lub nieistniejące → 404 `ORDER_NOT_FOUND` |
+| DELETE | `/api/orders/{id}` | zalogowany | anulowanie własnego zlecenia `NEW` → status `CANCELLED`, zwalnia zarezerwowane środki/akcje (działa też przy zamkniętym rynku); cudze → 404, inne niż `NEW` → 409 `ORDER_NOT_CANCELLABLE` |
 | GET | `/api/positions` | zalogowany | własne pozycje po symbolu `{instrumentId, symbol, quantity, blockedQuantity, avgPrice, currentPrice, marketValue, unrealizedPnl, unrealizedPnlPct}` wycenione po ostatniej cenie |
 | GET | `/api/instruments` | zalogowany | aktywne instrumenty z ostatnią ceną `{id, symbol, name, active, lastPrice, lastPriceAt}` |
 | GET | `/api/instruments/{id}` | zalogowany | szczegóły instrumentu (także nieaktywnego); 404 `INSTRUMENT_NOT_FOUND` |

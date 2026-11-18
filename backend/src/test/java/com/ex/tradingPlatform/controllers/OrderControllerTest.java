@@ -18,6 +18,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.mockito.Mockito.doReturn;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -554,7 +555,148 @@ class OrderControllerTest extends IntegrationTest {
                 .andExpect(jsonPath("$.code").value("TOO_MANY_OPEN_ORDERS"));
     }
 
+    // ------------------------------------------------------------------ cancel
+
+    @Test
+    void cancel_withoutToken_returns401() throws Exception {
+        mvc.perform(delete("/api/orders/{id}", 1)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void BR45_cancelPendingBuy_releasesReservedFunds() throws Exception {
+        deposit("1000");
+        long limitId = placedId(order("BUY", "LIMIT", aapl, 5, "100", null));     // reserves 500
+        placedId(order("BUY", "STOP", aapl, 2, null, "100.0001"));                // reserves 210.0002
+
+        cancel(limitId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(limitId))
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.reservedAmount").value(0));
+
+        assertAccount("1000.0000", "210.0002");
+        assertThat(jdbc.queryForMap("SELECT status, reserved_amount FROM orders WHERE id = ?", limitId))
+                .containsEntry("status", "CANCELLED")
+                .containsEntry("reserved_amount", new BigDecimal("0.0000"));
+        // released funds are spendable again
+        mvc.perform(withBearer(post("/api/account/withdraw"), token)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"amount\":789.9998}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void BR45_cancelPendingSell_releasesBlockedShares() throws Exception {
+        deposit("1000");
+        place(order("BUY", "MARKET", aapl, 10, null, null)).andExpect(status().isCreated());
+        long sellId = placedId(order("SELL", "LIMIT", aapl, 6, "120", null));
+        placedId(order("SELL", "STOP", aapl, 3, null, "80"));
+
+        cancel(sellId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+        assertPosition(10, 3);
+        assertAccount("0.0000", "0.0000");
+        // released shares can be sold or blocked again
+        place(order("SELL", "LIMIT", aapl, 7, "130", null)).andExpect(status().isCreated());
+        assertPosition(10, 10);
+    }
+
+    @Test
+    void BR45_cancel_isAllowedWhenMarketIsClosed() throws Exception {
+        deposit("1000");
+        long orderId = placedId(order("BUY", "LIMIT", aapl, 1, "100", null));
+        doReturn(false).when(marketHoursService).isOpen();
+
+        cancel(orderId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+        assertAccount("1000.0000", "0.0000");
+    }
+
+    @Test
+    void BR45_cancelOtherUsersOrder_returns404AndKeepsTheirReservation() throws Exception {
+        registerUser("jane@example.com", "secret123");
+        String janeToken = loginTokens("jane@example.com", "secret123").get("accessToken").asText();
+        mvc.perform(withBearer(post("/api/account/deposit"), janeToken)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"amount\":1000}"))
+                .andExpect(status().isOk());
+        long janesOrder = readJson(mvc.perform(withBearer(post("/api/orders"), janeToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(order("BUY", "LIMIT", aapl, 3, "100", null)))
+                .andExpect(status().isCreated()))
+                .get("id").asLong();
+
+        cancel(janesOrder)
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+
+        assertThat(jdbc.queryForObject("SELECT status FROM orders WHERE id = ?", String.class, janesOrder))
+                .isEqualTo("NEW");
+        assertThat(jdbc.queryForObject("SELECT blocked_balance FROM accounts WHERE user_id <> ?",
+                BigDecimal.class, userId)).isEqualTo(new BigDecimal("300.0000"));
+    }
+
+    @Test
+    void BR45_cancelFilledOrder_returns409AndChangesNothing() throws Exception {
+        deposit("1000");
+        long filledId = placedId(order("BUY", "MARKET", aapl, 2, null, null));
+
+        cancel(filledId)
+                .andExpect(status().isConflict())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("ORDER_NOT_CANCELLABLE"));
+
+        assertThat(jdbc.queryForObject("SELECT status FROM orders WHERE id = ?", String.class, filledId))
+                .isEqualTo("FILLED");
+        assertAccount("800.0000", "0.0000");
+        assertPosition(2, 0);
+    }
+
+    @Test
+    void BR45_cancellingTwice_releasesOnlyOnce() throws Exception {
+        deposit("1000");
+        long first = placedId(order("BUY", "LIMIT", aapl, 2, "100", null));
+        placedId(order("BUY", "LIMIT", aapl, 3, "100", null));
+
+        cancel(first).andExpect(status().isOk());
+        cancel(first)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ORDER_NOT_CANCELLABLE"));
+
+        assertAccount("1000.0000", "300.0000");
+    }
+
+    @Test
+    void BR44_BR45_cancelling_freesAnOpenOrderSlot() throws Exception {
+        deposit("1000");
+        long first = placedId(order("BUY", "LIMIT", aapl, 1, "1", null));
+        for (int i = 0; i < 19; i++) {
+            place(order("BUY", "LIMIT", aapl, 1, "1", null)).andExpect(status().isCreated());
+        }
+        place(order("BUY", "LIMIT", aapl, 1, "1", null)).andExpect(status().isConflict());
+
+        cancel(first).andExpect(status().isOk());
+
+        place(order("BUY", "LIMIT", aapl, 1, "1", null)).andExpect(status().isCreated());
+    }
+
+    @Test
+    void cancel_unknownOrder_returns404() throws Exception {
+        cancel(999_999)
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    private ResultActions cancel(long orderId) throws Exception {
+        return mvc.perform(withBearer(delete("/api/orders/{id}", orderId), token));
+    }
+
+    private long placedId(String json) throws Exception {
+        return readJson(place(json).andExpect(status().isCreated())).get("id").asLong();
+    }
 
     private void insertOrder(long ownerId, String status) {
         jdbc.update("""
