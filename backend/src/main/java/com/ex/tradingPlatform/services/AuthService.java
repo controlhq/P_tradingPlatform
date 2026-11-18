@@ -67,7 +67,8 @@ public class AuthService {
             throw emailTaken();
         }
 
-        User user = new User(email, passwordEncoder.encode(request.password()));
+        Instant now = clock.instant();
+        User user = new User(email, passwordEncoder.encode(request.password()), now);
         try {
             // flush now so a concurrent duplicate hits uq_users_email here, not at commit
             userRepository.saveAndFlush(user);
@@ -78,7 +79,7 @@ public class AuthService {
             throw ex;
         }
 
-        accountRepository.save(new Account(user));
+        accountRepository.save(new Account(user, now));
         return UserResponse.from(user);
     }
 
@@ -134,7 +135,8 @@ public class AuthService {
         refreshTokenRepository.save(new RefreshToken(
                 user,
                 tokenService.hashRefreshToken(rawRefreshToken),
-                tokenService.refreshTokenExpiry(now)));
+                tokenService.refreshTokenExpiry(now),
+                now));
 
         return TokenResponse.bearer(
                 tokenService.createAccessToken(user, now),

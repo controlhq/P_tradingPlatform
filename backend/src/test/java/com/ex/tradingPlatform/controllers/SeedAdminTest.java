@@ -3,14 +3,14 @@ package com.ex.tradingPlatform.controllers;
 import com.ex.tradingPlatform.IntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 
-import org.springframework.beans.factory.annotation.Autowired;
-
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,6 +47,6 @@ class SeedAdminTest extends IntegrationTest {
         Integer accounts = jdbc.queryForObject("""
                 SELECT count(*) FROM accounts a JOIN users u ON u.id = a.user_id
                 WHERE u.email = 'admin@trading.local'""", Integer.class);
-        org.assertj.core.api.Assertions.assertThat(accounts).isEqualTo(1);
+        assertThat(accounts).isEqualTo(1);
     }
 }

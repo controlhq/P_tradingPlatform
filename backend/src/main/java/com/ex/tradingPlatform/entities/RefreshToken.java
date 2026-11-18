@@ -8,7 +8,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -46,15 +45,11 @@ public class RefreshToken {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    public RefreshToken(User user, String tokenHash, Instant expiresAt) {
+    public RefreshToken(User user, String tokenHash, Instant expiresAt, Instant now) {
         this.user = user;
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;
-    }
-
-    @PrePersist
-    void onCreate() {
-        this.createdAt = Instant.now();
+        this.createdAt = now;
     }
 
     public boolean isActive(Instant now) {

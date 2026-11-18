@@ -8,8 +8,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.AccessLevel;
@@ -49,19 +47,9 @@ public class Account {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public Account(User user) {
+    public Account(User user, Instant now) {
         this.user = user;
-    }
-
-    @PrePersist
-    void onCreate() {
-        Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
-    }
-
-    @PreUpdate
-    void onUpdate() {
-        this.updatedAt = Instant.now();
     }
 }

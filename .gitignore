@@ -53,10 +53,4 @@ desktop.ini
 node_modules/
 dist/
 
-### AI tooling artifacts ###
-CLAUDE.md
-CLAUDE.local.md
-**/CLAUDE.md
-.claude/
-.claude*
-.ai/
+

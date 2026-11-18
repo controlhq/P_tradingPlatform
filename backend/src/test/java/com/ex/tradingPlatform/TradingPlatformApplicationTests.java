@@ -4,8 +4,8 @@ import org.junit.jupiter.api.Test;
 
 class TradingPlatformApplicationTests extends IntegrationTest {
 
-	@Test
-	void contextLoads() {
-	}
+    @Test
+    void contextLoads() {
+    }
 
 }

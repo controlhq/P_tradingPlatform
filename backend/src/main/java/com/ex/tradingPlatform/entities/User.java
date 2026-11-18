@@ -7,20 +7,16 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.Instant;
 
 @Entity
 @Table(name = "users")
 @Getter
-@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
 
@@ -41,28 +37,16 @@ public class User {
     @Column(nullable = false)
     private boolean enabled = true;
 
-    @Setter(AccessLevel.NONE)
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @Setter(AccessLevel.NONE)
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public User(String email, String passwordHash) {
+    public User(String email, String passwordHash, Instant now) {
         this.email = email;
         this.passwordHash = passwordHash;
-    }
-
-    @PrePersist
-    void onCreate() {
-        Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
-    }
-
-    @PreUpdate
-    void onUpdate() {
-        this.updatedAt = Instant.now();
     }
 }
