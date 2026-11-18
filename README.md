@@ -51,6 +51,7 @@ i uzupełnij w `.env`:
 | `MARKET_ALWAYS_OPEN` | `true` = rynek otwarty zawsze, np. na demo (domyślnie `false`) |
 | `MARKET_TICK_INTERVAL_MS` | co ile ms symulator generuje nowe ceny (domyślnie `3000`) |
 | `MARKET_VOLATILITY` | odchylenie standardowe zmiany ceny w jednym ticku, np. `0.005` = 0,5% |
+| `MARKET_SIMULATOR_ENABLED` | `false` wyłącza generowanie cen (domyślnie `true`; w testach wyłączone) |
 
 Zmienne ustawione w systemie mają pierwszeństwo przed `.env`.
 
