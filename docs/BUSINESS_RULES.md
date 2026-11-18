@@ -6,9 +6,9 @@ Each rule has a stable ID (`BRxx`). Tests covering a rule are named `BRxx_descri
 |------|------|-------------|
 | BR01 | Account balance can never be negative. | DB `ck_accounts_balance` |
 | BR02 | Blocked funds can never exceed the account balance. | DB `ck_accounts_blocked_balance_le_bal` |
-| BR03 | Order quantity must be between 1 and 10000. | DB `ck_orders_quantity` |
-| BR04 | A LIMIT order requires a limit price; other order types must not have one. | DB `ck_orders_limit_price` |
-| BR05 | A STOP order requires a stop price; other order types must not have one. | DB `ck_orders_stop_price` |
+| BR03 | Order quantity must be between 1 and 10000. | `PlaceOrderRequest`, DB `ck_orders_quantity` |
+| BR04 | A LIMIT order requires a limit price; other order types must not have one. | `PlaceOrderRequest` (`@ValidOrderPrices`), DB `ck_orders_limit_price` |
+| BR05 | A STOP order requires a stop price; other order types must not have one. | `PlaceOrderRequest` (`@ValidOrderPrices`), DB `ck_orders_stop_price` |
 | BR06 | Blocked shares in a position can never exceed the held quantity (no short selling). | DB `ck_positions_blocked_quantity_le_q` |
 | BR07 | User email is unique (case-insensitive) and stored trimmed and lowercase; a duplicate returns 409 `EMAIL_TAKEN`. | `AuthService.register`, DB `uq_users_email`, `ck_users_email_lower` |
 | BR08 | Only a hash of a refresh token is stored; a revoked or expired token cannot be used. | `RefreshToken.isActive` |
@@ -37,3 +37,8 @@ Each rule has a stable ID (`BRxx`). Tests covering a rule are named `BRxx_descri
 | BR31 | Every deposit and withdrawal writes a ledger transaction (`amount`, `balance_after`) in the same DB transaction as the balance change, so the signed sum of the ledger always equals the balance. | `AccountService` |
 | BR32 | A user lists only their own transactions, newest first (`created_at` desc, then id desc), paginated (`page` >= 0, `size` 1–100, default 20) and optionally filtered by `type`; out-of-range paging returns 400. | `TransactionService.list` |
 | BR33 | Buying more shares sets the position's average price to the quantity-weighted average of the old position and the new fill, rounded HALF_UP to 4 places; selling keeps the average price. A position never gives away more than its free shares (`quantity − blocked_quantity`). | `Position` |
+| BR34 | Only MARKET orders are executed for now; a valid LIMIT or STOP order returns 501 `ORDER_TYPE_NOT_SUPPORTED`. | `OrderService.place` |
+| BR35 | An order placed while the market is closed (BR23) returns 409 `MARKET_CLOSED`. | `OrderService.place` |
+| BR36 | An order for an unknown instrument returns 404 `INSTRUMENT_NOT_FOUND`; for an inactive instrument 422 `INSTRUMENT_INACTIVE`. | `OrderService.place` |
+| BR37 | A BUY requires available funds (`balance − blockedBalance`) of at least `quantity × latest price`; otherwise 409 `INSUFFICIENT_FUNDS`. | `OrderService` |
+| BR39 | A MARKET order is filled immediately at the latest price (BR18): status FILLED with `filled_price` and `filled_at`; the account, the position and a BUY/SELL transaction linked by `order_id` change in the same DB transaction. A rejected order is not stored. | `OrderService` |
