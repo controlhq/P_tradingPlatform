@@ -52,6 +52,37 @@ class PositionTest {
         assertThat(position.getQuantity()).isEqualTo(3);
     }
 
+    @Test
+    void BR43_blockAndRelease_moveSharesBetweenFreeAndBlocked() {
+        Position position = position(10, "1");
+
+        position.block(7, T0);
+        assertThat(position.getBlockedQuantity()).isEqualTo(7);
+        assertThat(position.getFreeQuantity()).isEqualTo(3);
+
+        position.release(5, T0);
+        assertThat(position.getBlockedQuantity()).isEqualTo(2);
+        assertThat(position.getFreeQuantity()).isEqualTo(8);
+    }
+
+    @Test
+    void BR43_blockingMoreThanFreeShares_isRefused() {
+        Position position = position(10, "1");
+        position.block(6, T0);
+
+        assertThatThrownBy(() -> position.block(5, T0)).isInstanceOf(IllegalStateException.class);
+        assertThat(position.getBlockedQuantity()).isEqualTo(6);
+    }
+
+    @Test
+    void BR43_releasingMoreThanBlocked_isRefused() {
+        Position position = position(10, "1");
+        position.block(2, T0);
+
+        assertThatThrownBy(() -> position.release(3, T0)).isInstanceOf(IllegalStateException.class);
+        assertThat(position.getBlockedQuantity()).isEqualTo(2);
+    }
+
     private static Position position(int quantity, String price) {
         return new Position(null, null, quantity, new BigDecimal(price), T0);
     }

@@ -438,7 +438,77 @@ class OrderControllerTest extends IntegrationTest {
         assertThat(positionQuantity()).isEqualTo(16);
     }
 
+    // ------------------------------------------------------------------ pending SELL
+
+    @ParameterizedTest
+    @ValueSource(strings = {"LIMIT", "STOP"})
+    void BR34_BR43_pendingSell_isStoredAsNewAndBlocksShares(String type) throws Exception {
+        deposit("1000");
+        place(order("BUY", "MARKET", aapl, 10, null, null)).andExpect(status().isCreated());
+
+        place(order("SELL", type, aapl, 4, type.equals("LIMIT") ? "120" : null, type.equals("STOP") ? "80" : null))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.side").value("SELL"))
+                .andExpect(jsonPath("$.type").value(type))
+                .andExpect(jsonPath("$.status").value("NEW"))
+                .andExpect(jsonPath("$.reservedAmount").value(0));
+
+        assertPosition(10, 4);
+        assertAccount("0.0000", "0.0000");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM transactions WHERE type = 'SELL'", Long.class)).isZero();
+    }
+
+    @Test
+    void BR43_sameSharesCannotBeBlockedTwice() throws Exception {
+        deposit("1000");
+        place(order("BUY", "MARKET", aapl, 10, null, null)).andExpect(status().isCreated());
+
+        place(order("SELL", "LIMIT", aapl, 6, "120", null)).andExpect(status().isCreated());
+        place(order("SELL", "STOP", aapl, 5, null, "80"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_SHARES"));
+        place(order("SELL", "STOP", aapl, 4, null, "80")).andExpect(status().isCreated());
+        place(order("SELL", "LIMIT", aapl, 1, "150", null))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_SHARES"));
+
+        assertPosition(10, 10);
+        assertThat(jdbc.queryForObject("SELECT SUM(quantity) FROM orders WHERE side = 'SELL' AND status = 'NEW'",
+                Integer.class)).isEqualTo(10);
+    }
+
+    @Test
+    void BR43_sharesBlockedByPendingSell_cannotBeSoldAtMarket() throws Exception {
+        deposit("1000");
+        place(order("BUY", "MARKET", aapl, 10, null, null)).andExpect(status().isCreated());
+        place(order("SELL", "LIMIT", aapl, 8, "120", null)).andExpect(status().isCreated());
+
+        place(order("SELL", "MARKET", aapl, 3, null, null))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_SHARES"));
+        place(order("SELL", "MARKET", aapl, 2, null, null)).andExpect(status().isCreated());
+
+        assertPosition(8, 8);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"LIMIT", "STOP"})
+    void BR43_pendingSellWithoutShares_returns409AndNothingChanges(String type) throws Exception {
+        deposit("1000");
+
+        place(order("SELL", type, aapl, 1, type.equals("LIMIT") ? "120" : null, type.equals("STOP") ? "80" : null))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_SHARES"));
+        assertNothingExecuted("1000.0000");
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    private void assertPosition(int expectedQuantity, int expectedBlocked) {
+        assertThat(jdbc.queryForMap("SELECT quantity, blocked_quantity FROM positions WHERE user_id = ?", userId))
+                .containsEntry("quantity", expectedQuantity)
+                .containsEntry("blocked_quantity", expectedBlocked);
+    }
 
     private void assertAccount(String expectedBalance, String expectedBlocked) {
         assertThat(jdbc.queryForMap("SELECT balance, blocked_balance FROM accounts WHERE user_id = ?", userId))

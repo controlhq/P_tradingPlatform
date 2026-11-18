@@ -80,6 +80,23 @@ public class Position {
         this.updatedAt = now;
     }
 
+    /** Reserves free shares for a pending SELL order so they cannot be sold or reserved twice. */
+    public void block(int shares, Instant now) {
+        if (shares > getFreeQuantity()) {
+            throw new IllegalStateException("Cannot block more than the free quantity");
+        }
+        this.blockedQuantity += shares;
+        this.updatedAt = now;
+    }
+
+    public void release(int shares, Instant now) {
+        if (shares > blockedQuantity) {
+            throw new IllegalStateException("Cannot release more than the blocked quantity");
+        }
+        this.blockedQuantity -= shares;
+        this.updatedAt = now;
+    }
+
     /** Selling keeps the average price; callers delete the position when it reaches zero. */
     public void remove(int shares, Instant now) {
         if (shares > getFreeQuantity()) {

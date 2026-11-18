@@ -37,7 +37,6 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class OrderService {
 
-    static final String ORDER_TYPE_NOT_SUPPORTED = "ORDER_TYPE_NOT_SUPPORTED";
     static final String INSTRUMENT_NOT_FOUND = "INSTRUMENT_NOT_FOUND";
     static final String INSTRUMENT_INACTIVE = "INSTRUMENT_INACTIVE";
     static final String INSTRUMENT_NOT_PRICED = "INSTRUMENT_NOT_PRICED";
@@ -88,8 +87,7 @@ public class OrderService {
         } else if (request.side() == OrderSide.BUY) {
             reserveFunds(account, order, now);
         } else {
-            throw new BusinessException(HttpStatus.NOT_IMPLEMENTED, ORDER_TYPE_NOT_SUPPORTED,
-                    "SELL " + request.type() + " orders are not supported yet.");
+            blockShares(order, now);
         }
         return OrderResponse.from(order);
     }
@@ -152,6 +150,21 @@ public class OrderService {
         orderRepository.save(order);
     }
 
+    /** A pending SELL blocks its shares in the position; blocked shares are not free for other orders. */
+    private void blockShares(Order order, Instant now) {
+        Position position = freePosition(order);
+        position.block(order.getQuantity(), now);
+        orderRepository.save(order);
+    }
+
+    private Position freePosition(Order order) {
+        return positionRepository
+                .findByUserIdAndInstrumentId(order.getUser().getId(), order.getInstrument().getId())
+                .filter(p -> p.getFreeQuantity() >= order.getQuantity())
+                .orElseThrow(() -> new BusinessException(HttpStatus.CONFLICT, INSUFFICIENT_SHARES,
+                        "Order quantity exceeds free shares."));
+    }
+
     private void fillBuy(Account account, Order order, BigDecimal price, Instant now) {
         BigDecimal cost = price.multiply(BigDecimal.valueOf(order.getQuantity()));
         if (cost.compareTo(account.getAvailableBalance()) > 0) {
@@ -175,11 +188,7 @@ public class OrderService {
     }
 
     private void fillSell(Account account, Order order, BigDecimal price, Instant now) {
-        Position position = positionRepository
-                .findByUserIdAndInstrumentId(account.getUser().getId(), order.getInstrument().getId())
-                .filter(p -> p.getFreeQuantity() >= order.getQuantity())
-                .orElseThrow(() -> new BusinessException(HttpStatus.CONFLICT, INSUFFICIENT_SHARES,
-                        "Order quantity exceeds free shares."));
+        Position position = freePosition(order);
 
         BigDecimal proceeds = price.multiply(BigDecimal.valueOf(order.getQuantity()));
         account.deposit(proceeds, now);
