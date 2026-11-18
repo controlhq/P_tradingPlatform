@@ -6,6 +6,7 @@ import com.ex.tradingPlatform.entities.PriceTick;
 import com.ex.tradingPlatform.repositories.InstrumentRepository;
 import com.ex.tradingPlatform.repositories.PriceTickRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +39,7 @@ public class PriceSimulator {
     private final MarketProperties properties;
     private final Random random;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     /** Generates one tick per active instrument that already has a price; returns the number of ticks saved. */
     @Transactional
@@ -61,6 +63,7 @@ public class PriceSimulator {
                 .map(i -> new PriceTick(i, nextPrice(latestByInstrument.get(i.getId()).getPrice()), now))
                 .toList();
         priceTickRepository.saveAll(ticks);
+        ticks.forEach(t -> events.publishEvent(new PriceTickCreatedEvent(t.getInstrument().getId(), t.getPrice())));
         return ticks.size();
     }
 

@@ -122,7 +122,7 @@ class PriceSimulatorTest extends IntegrationTest {
                 EnumSet.range(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), alwaysOpen, 3000, 0.005, 7);
         Clock clock = Clock.fixed(now, ZoneOffset.UTC);
         return new PriceSimulator(instrumentRepository, priceTickRepository,
-                new MarketHoursService(properties, clock), properties, random, clock);
+                new MarketHoursService(properties, clock), properties, random, clock, event -> { });
     }
 
     private static Random fixedGaussian(double value) {
