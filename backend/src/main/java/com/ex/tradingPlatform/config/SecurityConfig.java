@@ -32,6 +32,8 @@ public class SecurityConfig {
     private static final String[] PUBLIC_PATHS = {
             "/error",
             "/api/auth/**",
+            // authenticated by the token query parameter in StreamService
+            "/api/stream",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**"
