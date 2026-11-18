@@ -125,6 +125,16 @@ public class Order {
         this.updatedAt = now;
     }
 
+    /** A triggered order that cannot be settled; callers release its reservation first. */
+    public void reject(Instant now) {
+        if (status != OrderStatus.NEW) {
+            throw new IllegalStateException("Only a NEW order can be rejected, was " + status);
+        }
+        this.status = OrderStatus.REJECTED;
+        this.reservedAmount = BigDecimal.ZERO;
+        this.updatedAt = now;
+    }
+
     public void fill(BigDecimal price, Instant now) {
         if (status != OrderStatus.NEW) {
             throw new IllegalStateException("Only a NEW order can be filled, was " + status);

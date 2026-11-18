@@ -146,6 +146,53 @@ class OrderMatchingServiceTest extends IntegrationTest {
         assertPosition(10, 10, "100.0000");
     }
 
+    // ------------------------------------------------------------------ REJECTED
+
+    @Test
+    void BR50_buyCostAboveReservationAndFreeCash_isRejectedAndReservationReleased() {
+        deposit("525");
+        long id = place("BUY", "STOP", 5, null, "100");               // reserves all 525
+
+        // cost 550 > 525 and nothing else is free
+        assertThat(matching.onPriceTick(aapl, new BigDecimal("110"))).isZero();
+
+        assertThat(jdbc.queryForMap("SELECT status, reserved_amount, filled_price FROM orders WHERE id = ?", id))
+                .containsEntry("status", "REJECTED")
+                .containsEntry("reserved_amount", new BigDecimal("0.0000"))
+                .containsEntry("filled_price", null);
+        assertAccount("525.0000", "0.0000");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM positions", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM transactions WHERE type = 'BUY'", Long.class)).isZero();
+    }
+
+    @Test
+    void BR49_BR50_ordersAreProcessedOldestFirst_soTheLaterOneIsRejected() {
+        deposit("1100");
+        long older = place("BUY", "STOP", 5, null, "100");            // reserves 525
+        long newer = place("BUY", "STOP", 5, null, "100");            // reserves 525, 50 stays free
+
+        // each costs 560: the older one uses its 525 + 35 free cash, leaving 15 + 525 for the newer one
+        assertThat(matching.onPriceTick(aapl, new BigDecimal("112"))).isEqualTo(1);
+
+        assertFilled(older, "112.0000");
+        assertStatus(newer, "REJECTED");
+        assertAccount("540.0000", "0.0000");
+        assertPosition(5, 0, "112.0000");
+    }
+
+    @Test
+    void BR49_BR50_rejectedOrder_isNotMatchedAgain() {
+        deposit("525");
+        long id = place("BUY", "STOP", 5, null, "100");
+        matching.onPriceTick(aapl, new BigDecimal("110"));
+        deposit("10000");
+
+        assertThat(matching.onPriceTick(aapl, new BigDecimal("110"))).isZero();
+
+        assertStatus(id, "REJECTED");
+        assertAccount("10525.0000", "0.0000");
+    }
+
     // ------------------------------------------------------------------ processing
 
     @Test
