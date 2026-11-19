@@ -226,6 +226,7 @@ Zwykłego użytkownika zakładasz przez `POST /api/auth/register` (rola `USER`).
 | GET | `/api/stream?token=<accessToken>` | token w query | strumień Server-Sent Events (zdarzenia `price` i `order`); brak/zły/wygasły token → 401 `INVALID_TOKEN` |
 | GET | `/actuator/health` | publiczny | stan aplikacji `{"status":"UP"}` (sprawdza też bazę); jedyny wystawiony endpoint actuatora |
 | GET | `/api/admin/ping` | `ADMIN` | test uprawnień → `{"status":"pong"}` |
+| GET | `/api/admin/instruments` | `ADMIN` | wszystkie instrumenty (także nieaktywne) po symbolu, z ostatnią ceną |
 | POST | `/api/admin/instruments` | `ADMIN` | dodanie instrumentu `{symbol, name, initialPrice}` → 201; 409 `SYMBOL_TAKEN` |
 | PATCH | `/api/admin/instruments/{id}` | `ADMIN` | włączenie/wyłączenie instrumentu `{active}`; 404 `INSTRUMENT_NOT_FOUND` |
 

@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -157,6 +158,42 @@ class AdminInstrumentControllerTest extends IntegrationTest {
     @Test
     void BR21_create_missingPrice_returns400() throws Exception {
         expectFieldError(request("AAPL", "Apple Inc.", null), "initialPrice");
+    }
+
+    // ------------------------------------------------------------------ GET all
+
+    @Test
+    void list_withoutToken_returns401() throws Exception {
+        mvc.perform(get(URL)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void BR56_list_asUser_returns403() throws Exception {
+        mvc.perform(withBearer(get(URL), userToken))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+
+    @Test
+    void BR56_list_returnsActiveAndInactiveInstrumentsOrderedBySymbolWithPrice() throws Exception {
+        createInstrument("TSLA");
+        long meta = createInstrument("META");
+        createInstrument("AAPL");
+        update(adminToken, meta, "{\"active\":false}").andExpect(status().isOk());
+
+        mvc.perform(withBearer(get(URL), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$[*].symbol", contains("AAPL", "META", "TSLA")))
+                .andExpect(jsonPath("$[1].active").value(false))
+                .andExpect(jsonPath("$[1].lastPrice").value(100));
+    }
+
+    @Test
+    void BR56_list_withNoInstruments_returnsEmptyArray() throws Exception {
+        mvc.perform(withBearer(get(URL), adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
     }
 
     // ------------------------------------------------------------------ PATCH active

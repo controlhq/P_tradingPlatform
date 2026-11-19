@@ -42,7 +42,16 @@ public class InstrumentService {
 
     @Transactional(readOnly = true)
     public List<InstrumentResponse> listActive() {
-        List<Instrument> instruments = instrumentRepository.findAllByActiveTrueOrderBySymbolAsc();
+        return withLatestPrices(instrumentRepository.findAllByActiveTrueOrderBySymbolAsc());
+    }
+
+    /** Active and inactive instruments, for the admin panel (BR56). */
+    @Transactional(readOnly = true)
+    public List<InstrumentResponse> listAll() {
+        return withLatestPrices(instrumentRepository.findAllByOrderBySymbolAsc());
+    }
+
+    private List<InstrumentResponse> withLatestPrices(List<Instrument> instruments) {
         if (instruments.isEmpty()) {
             return List.of();
         }

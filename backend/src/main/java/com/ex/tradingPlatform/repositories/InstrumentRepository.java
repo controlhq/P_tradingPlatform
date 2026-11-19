@@ -10,4 +10,6 @@ public interface InstrumentRepository extends JpaRepository<Instrument, Long> {
     boolean existsBySymbol(String symbol);
 
     List<Instrument> findAllByActiveTrueOrderBySymbolAsc();
+
+    List<Instrument> findAllByOrderBySymbolAsc();
 }
