@@ -26,6 +26,9 @@ export function Layout() {
             <NavLink to="/markets" className={({ isActive }) => navLinkClass({ isActive: isActive || onInstrumentPage })}>
               Rynki
             </NavLink>
+            <NavLink to="/portfolio" className={navLinkClass}>
+              Portfel
+            </NavLink>
           </nav>
           <div className="app-user">
             <StreamIndicator />

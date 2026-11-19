@@ -5,6 +5,7 @@ import { Layout } from './components/Layout';
 import { Loading } from './components/Loading';
 import { LoginPage } from './pages/LoginPage';
 import { MarketsPage } from './pages/MarketsPage';
+import { PortfolioPage } from './pages/PortfolioPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { GuestOnly, RequireAuth } from './routes/RequireAuth';
 
@@ -24,6 +25,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route index element={<Navigate to="/markets" replace />} />
               <Route path="/markets" element={<MarketsPage />} />
+              <Route path="/portfolio" element={<PortfolioPage />} />
               <Route
                 path="/instruments/:id"
                 element={

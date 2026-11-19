@@ -145,6 +145,17 @@ Logowanie i sesja:
 - Strony `/login` i `/register` walidują dane tak jak backend; błędy serwera (`ProblemDetail`) są pokazywane
   przez wspólny komponent `ErrorAlert`, a `errors[]` pod właściwymi polami. Pozostałe trasy wymagają zalogowania.
 
+Strony (po zalogowaniu):
+
+| Trasa | Zawartość |
+|---|---|
+| `/markets` | instrumenty z ceną na żywo (SSE, zmiana podświetlana na zielono/czerwono) i status rynku |
+| `/instruments/:id` | wykres ceny (historia + ticki na żywo) i formularz zlecenia MARKET/LIMIT/STOP z podglądem kosztu lub rezerwacji |
+| `/portfolio` | saldo, środki zablokowane i dostępne, pozycje z wynikiem wycenianym na żywo, wpłata i wypłata |
+
+Jedno połączenie SSE (`src/stream/`) jest współdzielone przez wszystkie strony. Po zerwaniu łączy się ponownie
+z rosnącym odstępem (do 15 s), za każdym razem ze świeżym access tokenem. Kropka w nagłówku pokazuje stan połączenia.
+
 `node_modules/` i `dist/` są w `.gitignore`.
 
 ## Testy
