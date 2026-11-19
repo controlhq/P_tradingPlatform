@@ -1,4 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { decodeClaims } from './jwt';
 import { notifySessionExpired, tokens } from './tokens';
 import type { TokenResponse } from './types';
 
@@ -48,13 +49,8 @@ export function refreshTokens(): Promise<string> {
 const EXPIRY_MARGIN_MS = 30_000;
 
 function expiresSoon(token: string): boolean {
-  try {
-    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    const { exp } = JSON.parse(atob(payload)) as { exp?: number };
-    return exp === undefined || exp * 1000 - Date.now() < EXPIRY_MARGIN_MS;
-  } catch {
-    return true;
-  }
+  const exp = decodeClaims(token)?.exp;
+  return exp === undefined || exp * 1000 - Date.now() < EXPIRY_MARGIN_MS;
 }
 
 /**

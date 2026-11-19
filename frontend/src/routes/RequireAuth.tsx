@@ -16,6 +16,12 @@ export function RequireAuth() {
   return <Outlet />;
 }
 
+/** Admin pages; others are sent to the markets. The server enforces the role anyway (403). */
+export function RequireAdmin() {
+  const { role } = useAuth();
+  return role === 'ADMIN' ? <Outlet /> : <Navigate to="/markets" replace />;
+}
+
 /**
  * Login and registration make no sense for a logged-in user. After a successful login this also
  * performs the redirect, so it honours the page the user originally asked for.

@@ -279,6 +279,10 @@ a:hover {
   text-align: right;
 }
 
+.row-inactive td {
+  color: var(--text-muted);
+}
+
 .symbol {
   font-weight: 700;
 }

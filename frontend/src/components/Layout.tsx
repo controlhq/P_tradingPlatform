@@ -8,7 +8,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) => (isActive ? 'nav-l
 
 /** Shell of the logged-in part; it also owns the live stream, which closes on logout. */
 export function Layout() {
-  const { user, logout } = useAuth();
+  const { user, role, logout } = useAuth();
   const navigate = useNavigate();
   // an instrument page belongs to the markets section of the navigation
   const onInstrumentPage = useLocation().pathname.startsWith('/instruments/');
@@ -36,6 +36,11 @@ export function Layout() {
             <NavLink to="/transactions" className={navLinkClass}>
               Transakcje
             </NavLink>
+            {role === 'ADMIN' && (
+              <NavLink to="/admin" className={navLinkClass}>
+                Admin
+              </NavLink>
+            )}
           </nav>
           <div className="app-user">
             <StreamIndicator />

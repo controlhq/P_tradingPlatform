@@ -3,13 +3,14 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthContext';
 import { Layout } from './components/Layout';
 import { Loading } from './components/Loading';
+import { AdminPage } from './pages/AdminPage';
 import { LoginPage } from './pages/LoginPage';
 import { MarketsPage } from './pages/MarketsPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { PortfolioPage } from './pages/PortfolioPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { TransactionsPage } from './pages/TransactionsPage';
-import { GuestOnly, RequireAuth } from './routes/RequireAuth';
+import { GuestOnly, RequireAdmin, RequireAuth } from './routes/RequireAuth';
 
 // the chart library is large, so it is loaded only when an instrument is opened
 const InstrumentPage = lazy(() => import('./pages/InstrumentPage').then((m) => ({ default: m.InstrumentPage })));
@@ -30,6 +31,9 @@ export default function App() {
               <Route path="/portfolio" element={<PortfolioPage />} />
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/transactions" element={<TransactionsPage />} />
+              <Route element={<RequireAdmin />}>
+                <Route path="/admin" element={<AdminPage />} />
+              </Route>
               <Route
                 path="/instruments/:id"
                 element={

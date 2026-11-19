@@ -152,6 +152,11 @@ Strony (po zalogowaniu):
 | `/markets` | instrumenty z ceną na żywo (SSE, zmiana podświetlana na zielono/czerwono) i status rynku |
 | `/instruments/:id` | wykres ceny (historia + ticki na żywo) i formularz zlecenia MARKET/LIMIT/STOP z podglądem kosztu lub rezerwacji |
 | `/portfolio` | saldo, środki zablokowane i dostępne, pozycje z wynikiem wycenianym na żywo, wpłata i wypłata |
+| `/orders` | zlecenia z filtrem statusu i stronicowaniem, anulowanie zleceń `NEW`, status aktualizowany na żywo |
+| `/transactions` | historia gotówki z filtrem typu i stronicowaniem |
+| `/admin` | tylko rola `ADMIN` (z claimu `role` w access tokenie): dodawanie instrumentu, włączanie i wyłączanie |
+
+Gdy matching wykona lub odrzuci zlecenie oczekujące, na każdej stronie pojawia się powiadomienie (toast).
 
 Jedno połączenie SSE (`src/stream/`) jest współdzielone przez wszystkie strony. Po zerwaniu łączy się ponownie
 z rosnącym odstępem (do 15 s), za każdym razem ze świeżym access tokenem. Kropka w nagłówku pokazuje stan połączenia.

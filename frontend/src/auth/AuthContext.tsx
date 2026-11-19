@@ -1,14 +1,17 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as authApi from '../api/auth';
 import { refreshTokens } from '../api/client';
+import { decodeClaims } from '../api/jwt';
 import { onSessionExpired, tokens } from '../api/tokens';
-import type { User } from '../api/types';
+import type { Role, User } from '../api/types';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 
 export interface AuthState {
   status: AuthStatus;
   user: User | null;
+  /** Role claim of the current access token; decides which parts of the UI are shown. */
+  role: Role | null;
   login(email: string, password: string): Promise<void>;
   register(email: string, password: string): Promise<void>;
   logout(): Promise<void>;
@@ -16,13 +19,20 @@ export interface AuthState {
 
 export const AuthContext = createContext<AuthState | null>(null);
 
+function roleFromAccessToken(): Role | null {
+  const token = tokens.getAccess();
+  return (token && decodeClaims(token)?.role) || null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<Role | null>(null);
 
   const signOutLocally = useCallback(() => {
     tokens.clear();
     setUser(null);
+    setRole(null);
     setStatus('anonymous');
   }, []);
 
@@ -38,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((me) => {
         if (!cancelled) {
           setUser(me);
+          setRole(roleFromAccessToken());
           setStatus('authenticated');
         }
       })
@@ -57,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const pair = await authApi.login(email, password);
     tokens.set(pair.accessToken, pair.refreshToken);
     setUser(await authApi.currentUser());
+    setRole(roleFromAccessToken());
     setStatus('authenticated');
   }, []);
 
@@ -81,8 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [signOutLocally]);
 
   const value = useMemo(
-    () => ({ status, user, login, register, logout }),
-    [status, user, login, register, logout],
+    () => ({ status, user, role, login, register, logout }),
+    [status, user, role, login, register, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
