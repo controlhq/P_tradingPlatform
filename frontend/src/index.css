@@ -196,6 +196,122 @@ a:hover {
   }
 }
 
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
+/* ---------- badges ---------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.badge-open {
+  color: var(--up);
+  border-color: rgba(22, 199, 132, 0.4);
+}
+
+.badge-closed {
+  color: var(--down);
+  border-color: rgba(234, 57, 67, 0.4);
+}
+
+.badge-detail {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ---------- tables ---------- */
+
+.table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.65rem 1rem;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.table .num {
+  text-align: right;
+}
+
+.symbol {
+  font-weight: 700;
+}
+
+@keyframes flash-up {
+  from {
+    background: rgba(22, 199, 132, 0.35);
+  }
+}
+
+@keyframes flash-down {
+  from {
+    background: rgba(234, 57, 67, 0.35);
+  }
+}
+
+.flash-up {
+  color: var(--up);
+  animation: flash-up 1.2s ease-out;
+}
+
+.flash-down {
+  color: var(--down);
+  animation: flash-down 1.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flash-up,
+  .flash-down {
+    animation: none;
+  }
+}
+
 /* ---------- forms ---------- */
 
 .form {

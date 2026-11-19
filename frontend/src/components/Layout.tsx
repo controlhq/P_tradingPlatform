@@ -21,8 +21,8 @@ export function Layout() {
         <header className="app-header">
           <span className="brand">Trading Simulator</span>
           <nav className="app-nav">
-            <NavLink to="/" end className={navLinkClass}>
-              Pulpit
+            <NavLink to="/markets" className={navLinkClass}>
+              Rynki
             </NavLink>
           </nav>
           <div className="app-user">
