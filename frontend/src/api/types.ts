@@ -83,6 +83,15 @@ export interface PlaceOrderRequest {
   stopPrice?: number;
 }
 
+/** Paged list returned by /api/orders and /api/transactions; {@code page} is zero-based. */
+export interface Page<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 /** SSE "price" event. */
 export interface PriceEvent {
   instrumentId: number;

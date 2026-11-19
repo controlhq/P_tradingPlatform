@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { MarketStreamProvider } from '../stream/MarketStreamContext';
 import { StreamIndicator } from './StreamIndicator';
+import { OrderToasts } from './Toasts';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) => (isActive ? 'nav-link active' : 'nav-link');
 
@@ -29,6 +30,9 @@ export function Layout() {
             <NavLink to="/portfolio" className={navLinkClass}>
               Portfel
             </NavLink>
+            <NavLink to="/orders" className={navLinkClass}>
+              Zlecenia
+            </NavLink>
           </nav>
           <div className="app-user">
             <StreamIndicator />
@@ -41,6 +45,7 @@ export function Layout() {
         <main className="app-main">
           <Outlet />
         </main>
+        <OrderToasts />
       </div>
     </MarketStreamProvider>
   );
