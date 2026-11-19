@@ -7,7 +7,7 @@ import type { Account, Instrument, Position, PricePoint } from '../api/types';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { OrderForm } from '../components/OrderForm';
 import { PriceChart } from '../components/PriceChart';
-import { formatPrice, trendClass } from '../format';
+import { formatPercent, formatPrice, trendClass } from '../format';
 import { useMarketStream } from '../stream/useMarketStream';
 
 const HISTORY_LIMIT = 300;
@@ -104,10 +104,7 @@ export function InstrumentPage() {
         <div className="quote">
           <span className="mono quote-price">{formatPrice(last?.price ?? instrument.lastPrice)}</span>
           {change !== null && (
-            <span className={`mono ${trendClass(change)}`}>
-              {change >= 0 ? '+' : ''}
-              {change.toFixed(2)}% w widocznym okresie
-            </span>
+            <span className={`mono ${trendClass(change)}`}>{formatPercent(change)} w widocznym okresie</span>
           )}
         </div>
       </div>
