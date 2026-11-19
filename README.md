@@ -8,14 +8,15 @@ Symulator giełdy: rejestracja i logowanie (JWT), konto gotówkowe, instrumenty,
 3. [Konfiguracja (.env)](#konfiguracja-env)
 4. [Baza danych (Docker)](#baza-danych-docker)
 5. [Uruchomienie aplikacji](#uruchomienie-aplikacji)
-6. [Testy](#testy)
-7. [Swagger / OpenAPI](#swagger--openapi)
-8. [Konto administratora](#konto-administratora)
-9. [API: przegląd endpointów](#api-przegląd-endpointów)
-10. [Advanced feature](#advanced-feature)
-11. [Migracje bazy (Flyway)](#migracje-bazy-flyway)
-12. [Rozwiązywanie problemów](#rozwiązywanie-problemów)
-13. [Diagram ERD](#diagram-erd)
+6. [Frontend](#frontend)
+7. [Testy](#testy)
+8. [Swagger / OpenAPI](#swagger--openapi)
+9. [Konto administratora](#konto-administratora)
+10. [API: przegląd endpointów](#api-przegląd-endpointów)
+11. [Advanced feature](#advanced-feature)
+12. [Migracje bazy (Flyway)](#migracje-bazy-flyway)
+13. [Rozwiązywanie problemów](#rozwiązywanie-problemów)
+14. [Diagram ERD](#diagram-erd)
 
 ## Struktura repozytorium
 ```
@@ -23,7 +24,7 @@ backend/                 Spring Boot 3.5 (Java 21), Maven wrapper
   src/main/java/.../     config, controllers, services, repositories, entities, dto, exceptions, security
   src/main/resources/db/migration/   migracje Flyway (V1, V2, ...)
   Dockerfile             obraz backendu (build: Maven + JDK 21, runtime: JRE 21)
-frontend/                React + Vite + TS (w przygotowaniu)
+frontend/                React + Vite + TS (react-router, axios, recharts)
 docs/BUSINESS_RULES.md   reguły biznesowe (BRxx), testy nazwane BRxx_opis
 docker-compose.yml       PostgreSQL 16 (db) + backend
 .env.example             szablon konfiguracji
@@ -33,6 +34,7 @@ docker-compose.yml       PostgreSQL 16 (db) + backend
 - **Java 21+** (`java -version`)
 - **Docker Desktop**: uruchomiony, potrzebny do bazy danych i do testów (Testcontainers)
 - Maven **nie** jest potrzebny, projekt ma wrapper `mvnw`
+- **Node.js 20.19+ lub 22.12+** i npm (`node -v`): tylko dla frontendu
 
 ## Konfiguracja (.env)
 Cała konfiguracja jest w pliku `.env` w katalogu głównym. Plik nie trafia do repo (`.gitignore`).
@@ -116,6 +118,34 @@ cd backend
 ./mvnw clean package -DskipTests
 java -jar target/tradingPlatform-0.0.1-SNAPSHOT.jar   # uruchom z katalogu backend/ lub głównego (.env)
 ```
+
+## Frontend
+React + Vite + TypeScript w katalogu `frontend/`. Wymaga działającego backendu (lokalnie albo `docker compose up -d --build`).
+
+```powershell
+cd frontend
+npm install                               # jednorazowo
+Copy-Item .env.example .env.local         # opcjonalnie: VITE_API_URL, domyślnie http://localhost:8080
+npm run dev                               # http://localhost:5173
+```
+
+| Komenda | Opis |
+|---|---|
+| `npm run dev` | serwer deweloperski z hot reload na porcie **5173** (dopuszczonym w `CORS_ALLOWED_ORIGINS`) |
+| `npm run typecheck` | sprawdzenie typów TypeScript |
+| `npm run build` | sprawdzenie typów + build produkcyjny do `frontend/dist/` |
+| `npm run preview` | podgląd zbudowanej wersji |
+
+Logowanie i sesja:
+- Access token jest trzymany tylko w pamięci, refresh token w `localStorage`. Po przeładowaniu strony
+  sesja jest odtwarzana przez `POST /api/auth/refresh`.
+- Klient API (`src/api/client.ts`) dokleja nagłówek `Authorization: Bearer`. Przy odpowiedzi 401 raz odświeża
+  tokeny i powtarza żądanie; jeśli odświeżenie się nie uda, użytkownik jest wylogowany. Równoległe żądania
+  współdzielą jedno odświeżenie, bo backend unieważnia wszystkie sesje przy ponownym użyciu starego refresh tokenu (BR16).
+- Strony `/login` i `/register` walidują dane tak jak backend; błędy serwera (`ProblemDetail`) są pokazywane
+  przez wspólny komponent `ErrorAlert`, a `errors[]` pod właściwymi polami. Pozostałe trasy wymagają zalogowania.
+
+`node_modules/` i `dist/` są w `.gitignore`.
 
 ## Testy
 Testy integracyjne używają **prawdziwego PostgreSQL w Testcontainers**, więc Docker musi działać.
