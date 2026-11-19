@@ -1,5 +1,14 @@
 import { api } from './client';
-import type { Account, Order, OrderStatus, Page, PlaceOrderRequest, Position } from './types';
+import type {
+  Account,
+  Order,
+  OrderStatus,
+  Page,
+  PlaceOrderRequest,
+  Position,
+  Transaction,
+  TransactionType,
+} from './types';
 
 export async function getAccount(): Promise<Account> {
   const { data } = await api.get<Account>('/api/account');
@@ -28,6 +37,15 @@ export async function placeOrder(request: PlaceOrderRequest): Promise<Order> {
 
 export async function listOrders(page: number, size: number, status?: OrderStatus): Promise<Page<Order>> {
   const { data } = await api.get<Page<Order>>('/api/orders', { params: { page, size, status } });
+  return data;
+}
+
+export async function listTransactions(
+  page: number,
+  size: number,
+  type?: TransactionType,
+): Promise<Page<Transaction>> {
+  const { data } = await api.get<Page<Transaction>>('/api/transactions', { params: { page, size, type } });
   return data;
 }
 

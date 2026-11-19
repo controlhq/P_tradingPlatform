@@ -536,6 +536,12 @@ a:hover {
   color: var(--text-muted);
 }
 
+.table-footnote {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 .pagination {
   display: flex;
   align-items: center;

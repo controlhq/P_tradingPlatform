@@ -8,6 +8,7 @@ import { MarketsPage } from './pages/MarketsPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { PortfolioPage } from './pages/PortfolioPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { TransactionsPage } from './pages/TransactionsPage';
 import { GuestOnly, RequireAuth } from './routes/RequireAuth';
 
 // the chart library is large, so it is loaded only when an instrument is opened
@@ -28,6 +29,7 @@ export default function App() {
               <Route path="/markets" element={<MarketsPage />} />
               <Route path="/portfolio" element={<PortfolioPage />} />
               <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/transactions" element={<TransactionsPage />} />
               <Route
                 path="/instruments/:id"
                 element={

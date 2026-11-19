@@ -33,6 +33,9 @@ export function Layout() {
             <NavLink to="/orders" className={navLinkClass}>
               Zlecenia
             </NavLink>
+            <NavLink to="/transactions" className={navLinkClass}>
+              Transakcje
+            </NavLink>
           </nav>
           <div className="app-user">
             <StreamIndicator />

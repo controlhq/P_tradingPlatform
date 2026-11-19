@@ -83,6 +83,17 @@ export interface PlaceOrderRequest {
   stopPrice?: number;
 }
 
+export type TransactionType = 'DEPOSIT' | 'WITHDRAW' | 'BUY' | 'SELL';
+
+/** Cash ledger entry; {@code amount} is always positive, the type gives the direction. */
+export interface Transaction {
+  id: number;
+  type: TransactionType;
+  amount: number;
+  balanceAfter: number;
+  createdAt: string;
+}
+
 /** Paged list returned by /api/orders and /api/transactions; {@code page} is zero-based. */
 export interface Page<T> {
   content: T[];
