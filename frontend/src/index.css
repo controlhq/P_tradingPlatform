@@ -88,6 +88,16 @@ a:hover {
   border-radius: var(--radius);
 }
 
+.card > p {
+  margin: 1.25rem 0 0;
+  font-size: 0.9rem;
+}
+
+.hint {
+  margin: -0.5rem 0 0;
+  font-size: 0.8rem;
+}
+
 /* ---------- forms ---------- */
 
 .form {
