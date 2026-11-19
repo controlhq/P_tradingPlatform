@@ -45,6 +45,27 @@ export function refreshTokens(): Promise<string> {
   return refreshing;
 }
 
+const EXPIRY_MARGIN_MS = 30_000;
+
+function expiresSoon(token: string): boolean {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const { exp } = JSON.parse(atob(payload)) as { exp?: number };
+    return exp === undefined || exp * 1000 - Date.now() < EXPIRY_MARGIN_MS;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * An access token valid for at least the next 30 s, refreshed if needed. For connections that cannot go
+ * through the interceptor, such as EventSource, which the server checks only when it is opened.
+ */
+export async function freshAccessToken(): Promise<string> {
+  const token = tokens.getAccess();
+  return token && !expiresSoon(token) ? token : refreshTokens();
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {

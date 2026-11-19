@@ -148,6 +148,30 @@ a:hover {
   font-size: 0.9rem;
 }
 
+.stream-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.stream-indicator .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.stream-open .dot {
+  background: var(--up);
+  box-shadow: 0 0 6px var(--up);
+}
+
+.stream-reconnecting .dot {
+  background: #f5a524;
+}
+
 .app-main {
   flex: 1;
   width: 100%;
