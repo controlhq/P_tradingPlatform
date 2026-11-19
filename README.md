@@ -22,9 +22,10 @@ Symulator giełdy: rejestracja i logowanie (JWT), konto gotówkowe, instrumenty,
 backend/                 Spring Boot 3.5 (Java 21), Maven wrapper
   src/main/java/.../     config, controllers, services, repositories, entities, dto, exceptions, security
   src/main/resources/db/migration/   migracje Flyway (V1, V2, ...)
+  Dockerfile             obraz backendu (build: Maven + JDK 21, runtime: JRE 21)
 frontend/                React + Vite + TS (w przygotowaniu)
 docs/BUSINESS_RULES.md   reguły biznesowe (BRxx), testy nazwane BRxx_opis
-docker-compose.yml       PostgreSQL 16
+docker-compose.yml       PostgreSQL 16 (db) + backend
 .env.example             szablon konfiguracji
 ```
 
@@ -45,7 +46,7 @@ i uzupełnij w `.env`:
 
 | Zmienna | Opis |
 |---|---|
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD` | połączenie z bazą; te same wartości użyje kontener |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD` | połączenie z bazą; te same wartości użyje kontener (backend w compose sam ustawia `DB_HOST=db`, `DB_PORT=5432`) |
 | `JWT_SECRET` | klucz HS256, **min. 32 bajty**, np. `openssl rand -base64 48`. Bez niego aplikacja nie wystartuje |
 | `CORS_ALLOWED_ORIGINS` | adresy frontendu oddzielone przecinkami (domyślnie `http://localhost:5173`) |
 | `MARKET_OPEN_TIME`, `MARKET_CLOSE_TIME` | godziny sesji w strefie Europe/Warsaw, pn–pt (domyślnie `09:00`–`17:00`) |
@@ -65,6 +66,7 @@ Wszystkie komendy wykonuj z katalogu głównego repo.
 | Uruchom bazę | `docker compose up -d db` |
 | Status | `docker compose ps` |
 | Logi | `docker compose logs -f db` |
+| Uruchom bazę i backend | `docker compose up -d --build` (szczegóły w „Uruchomienie aplikacji”) |
 | Zatrzymaj (dane zostają) | `docker compose stop db` |
 | Usuń kontener (dane zostają w wolumenie) | `docker compose down` |
 | **Usuń kontener i wszystkie dane** | `docker compose down -v` |
@@ -74,7 +76,21 @@ Baza jest wystawiona na porcie **5433** (`DB_PORT`), żeby nie kolidować z loka
 Schemat tworzy Flyway przy starcie aplikacji, więc nic nie trzeba zakładać ręcznie.
 
 ## Uruchomienie aplikacji
-**Z terminala:**
+**Całość jednym poleceniem (baza + backend w Dockerze):**
+```powershell
+Copy-Item .env.example .env      # jednorazowo, uzupełnij JWT_SECRET i DB_PASSWORD
+docker compose up -d --build
+```
+- `backend` startuje dopiero, gdy baza jest zdrowa (`depends_on: condition: service_healthy`), i jest dostępny
+  na `http://localhost:8080`. W sieci compose łączy się z bazą pod adresem `db:5432`.
+- `docker compose ps`: oba serwisy powinny mieć status `healthy` (healthcheck backendu odpytuje `/actuator/health`).
+  `docker compose up -d --build --wait` czeka, aż oba będą zdrowe.
+- Logi: `docker compose logs -f backend`. Zatrzymanie: `docker compose down` (dane bazy zostają w wolumenie).
+- Po zmianie kodu wystarczy ponownie `docker compose up -d --build`. Obraz nie uruchamia testów (Testcontainers
+  potrzebuje Dockera), więc przed buildem odpal `./mvnw test`.
+- Nie uruchamiaj jednocześnie backendu w Dockerze i z IDE, bo oba chcą port 8080.
+
+**Z terminala (sama baza w Dockerze, backend lokalnie):**
 ```powershell
 docker compose up -d db
 cd backend

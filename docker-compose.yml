@@ -10,5 +10,24 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
       interval: 5s
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      # inside the compose network the database is the "db" service on its container port
+      DB_HOST: db
+      DB_PORT: "5432"
+    ports: ["8080:8080"]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      start_period: 40s
+      retries: 5
+
 volumes:
   pgdata:
