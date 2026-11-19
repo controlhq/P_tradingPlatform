@@ -99,11 +99,12 @@ class StreamControllerTest extends IntegrationTest {
                 .andReturn();
 
         assertThat(registry.connectionCount(userId)).isEqualTo(1);
-
-        // headers, including the content type, are written together with the first event
-        registry.sendToUser(userId, "order", "hello");
+        // the initial comment flushes the headers at once, so EventSource reports the connection open
         assertThat(result.getResponse().getContentType()).startsWith(MediaType.TEXT_EVENT_STREAM_VALUE);
-        assertThat(result.getResponse().getContentAsString()).contains("event:order\ndata:hello\n\n");
+        assertThat(result.getResponse().getContentAsString()).isEqualTo(":connected\n\n");
+
+        registry.sendToUser(userId, "order", "hello");
+        assertThat(result.getResponse().getContentAsString()).endsWith("event:order\ndata:hello\n\n");
     }
 
     @Test

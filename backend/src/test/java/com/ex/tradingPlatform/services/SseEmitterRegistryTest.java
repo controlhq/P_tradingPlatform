@@ -108,9 +108,36 @@ class SseEmitterRegistryTest {
         assertThat(registry.connectionCount(2L)).isZero();
     }
 
+    @Test
+    void register_sendsCommentRightAway_soTheClientSeesTheConnectionOpen() {
+        registry.register(1L);
+
+        assertThat(created.getLast().text()).isEqualTo(":connected\n\n");
+    }
+
+    @Test
+    void register_connectionThatCannotBeWritten_isNotKept() {
+        SseEmitterRegistry deadOnArrival = new SseEmitterRegistry() {
+            @Override
+            protected SseEmitter newEmitter() {
+                RecordingEmitter emitter = new RecordingEmitter();
+                emitter.failing = true;
+                return emitter;
+            }
+        };
+
+        deadOnArrival.register(1L);
+
+        assertThat(deadOnArrival.connectionCount(1L)).isZero();
+    }
+
+    /** Registers a connection and forgets the initial comment, so tests see only what they send. */
     private RecordingEmitter register(Long userId) {
         registry.register(userId);
-        return created.getLast();
+        RecordingEmitter emitter = created.getLast();
+        emitter.sent.clear();
+        emitter.attempts = 0;
+        return emitter;
     }
 
     /** Captures what would be written to the client instead of needing a servlet response. */

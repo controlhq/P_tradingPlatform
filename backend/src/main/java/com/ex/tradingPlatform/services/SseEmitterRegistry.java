@@ -36,6 +36,9 @@ public class SseEmitterRegistry {
             emitter.complete();
         });
         emitter.onError(ex -> remove(userId, emitter));
+        // response headers go out with the first write, so without this the client sees the connection
+        // as open only after the next price tick or heartbeat (up to 15 s when the market is closed)
+        send(userId, emitter, () -> SseEmitter.event().comment("connected"));
         return emitter;
     }
 
