@@ -312,6 +312,138 @@ a:hover {
   }
 }
 
+/* ---------- panels and instrument page ---------- */
+
+.panel {
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.panel h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.instrument-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .instrument-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.chart-empty {
+  margin: 0;
+  padding: 6rem 0;
+  text-align: center;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.title-name {
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.quote {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.85rem;
+}
+
+.quote-price {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+
+.segmented button {
+  padding: 0.5rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+}
+
+.segmented button.active.buy {
+  color: #fff;
+  background: var(--up);
+}
+
+.segmented button.active.sell {
+  color: #fff;
+  background: var(--down);
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 1rem;
+  margin: 0;
+  padding: 0.75rem;
+  font-size: 0.9rem;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+
+.summary dt {
+  color: var(--text-muted);
+}
+
+.summary dd {
+  margin: 0;
+  text-align: right;
+}
+
+.alert-success {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: #bbf7d0;
+  background: rgba(22, 199, 132, 0.12);
+  border: 1px solid rgba(22, 199, 132, 0.4);
+  border-radius: var(--radius);
+}
+
+.btn-buy {
+  color: #fff;
+  background: var(--up);
+  border-color: var(--up);
+}
+
+.btn-sell {
+  color: #fff;
+  background: var(--down);
+  border-color: var(--down);
+}
+
+.btn-buy:hover:not(:disabled),
+.btn-sell:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
 /* ---------- forms ---------- */
 
 .form {
@@ -331,7 +463,8 @@ a:hover {
   color: var(--text-muted);
 }
 
-.field input {
+.field input,
+.field select {
   padding: 0.6rem 0.75rem;
   font: inherit;
   color: var(--text);
@@ -341,7 +474,8 @@ a:hover {
   outline: none;
 }
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
   border-color: var(--accent);
 }
 

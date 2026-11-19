@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { MarketStreamProvider } from '../stream/MarketStreamContext';
 import { StreamIndicator } from './StreamIndicator';
@@ -9,6 +9,8 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) => (isActive ? 'nav-l
 export function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  // an instrument page belongs to the markets section of the navigation
+  const onInstrumentPage = useLocation().pathname.startsWith('/instruments/');
 
   async function handleLogout() {
     await logout();
@@ -21,7 +23,7 @@ export function Layout() {
         <header className="app-header">
           <span className="brand">Trading Simulator</span>
           <nav className="app-nav">
-            <NavLink to="/markets" className={navLinkClass}>
+            <NavLink to="/markets" className={({ isActive }) => navLinkClass({ isActive: isActive || onInstrumentPage })}>
               Rynki
             </NavLink>
           </nav>
