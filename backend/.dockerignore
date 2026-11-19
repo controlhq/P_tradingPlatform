@@ -1,0 +1,17 @@
+# Only pom.xml and src/ are needed by the Dockerfile
+target/
+.mvn/
+mvnw
+mvnw.cmd
+HELP.md
+*.log
+logs/
+
+# secrets never go into the image; configuration comes from the environment
+.env
+.env.*
+
+# IDE
+.idea/
+*.iml
+.vscode/
