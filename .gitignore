@@ -49,7 +49,7 @@ bin/
 Thumbs.db
 desktop.ini
 
-### Frontend (later) ###
+### Frontend ###
 node_modules/
 dist/
 
