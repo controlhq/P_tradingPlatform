@@ -1,0 +1,13 @@
+# installed and built inside the image
+node_modules/
+dist/
+
+# local configuration must not change the image; VITE_API_URL is a build argument
+.env
+.env.*
+
+*.log
+.vscode/
+.idea/
+Dockerfile
+.dockerignore
