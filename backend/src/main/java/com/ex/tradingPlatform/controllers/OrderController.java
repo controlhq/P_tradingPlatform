@@ -44,7 +44,8 @@ public class OrderController {
     @ApiResponse(responseCode = "409",
             description = "Market closed (MARKET_CLOSED), not enough funds (INSUFFICIENT_FUNDS) "
                     + "or free shares (INSUFFICIENT_SHARES), too many open orders (TOO_MANY_OPEN_ORDERS)")
-    @ApiResponse(responseCode = "422", description = "Instrument is inactive (INSTRUMENT_INACTIVE)")    public OrderResponse place(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody PlaceOrderRequest request) {
+    @ApiResponse(responseCode = "422", description = "Instrument is inactive (INSTRUMENT_INACTIVE)")
+    public OrderResponse place(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody PlaceOrderRequest request) {
         return orderService.place(Long.valueOf(jwt.getSubject()), request);
     }
 
