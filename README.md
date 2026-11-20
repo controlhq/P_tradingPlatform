@@ -2,6 +2,30 @@
 
 Symulator giełdy: rejestracja i logowanie (JWT), konto gotówkowe, instrumenty, zlecenia, pozycje.
 
+## Problem biznesowy
+Nauka inwestowania na prawdziwej giełdzie kosztuje prawdziwe pieniądze, a konto demo u brokera rzadko pokazuje,
+co dzieje się „pod spodem”. Trading Simulator to giełda w miniaturze, na której można bez ryzyka ćwiczyć
+handel akcjami za wirtualną gotówkę:
+- użytkownik wpłaca i wypłaca środki, kupuje i sprzedaje akcje zleceniami MARKET, LIMIT i STOP;
+- rynek żyje sam: ceny zmieniają się w godzinach sesji, a zlecenia oczekujące wykonują się, gdy cena osiągnie
+  zadany poziom; zmiany widać w przeglądarce na żywo;
+- system pilnuje tych samych zasad co prawdziwy broker: nie da się wydać więcej, niż jest na koncie, sprzedać
+  akcji, których się nie ma (brak krótkiej sprzedaży), ani dwa razy zarezerwować tych samych środków;
+- portfel pokazuje pozycje ze średnią ceną zakupu i niezrealizowanym zyskiem/stratą, a każda zmiana salda
+  zostaje w historii transakcji;
+- administrator zarządza listą instrumentów.
+
+## Stack
+| Warstwa | Technologie |
+|---|---|
+| Backend | Java 21, Spring Boot 3.5 (Web, Data JPA, Validation, Security, OAuth2 Resource Server, Actuator), Lombok |
+| Bezpieczeństwo | JWT HS256 (access 15 min, rotowany refresh 7 dni), hasła Argon2id, role USER/ADMIN |
+| Baza danych | PostgreSQL 16, Flyway, Hibernate w trybie `validate` |
+| API | REST, błędy jako ProblemDetail (RFC 9457), Server-Sent Events, OpenAPI/Swagger (springdoc) |
+| Testy | JUnit 5, Spring Boot Test, MockMvc, Testcontainers (prawdziwy PostgreSQL) |
+| Frontend | React 19, TypeScript, Vite, React Router, axios, recharts |
+| Uruchomienie | Docker, Docker Compose, nginx (frontend + proxy `/api`) |
+
 ## Spis treści
 1. [Struktura repozytorium](#struktura-repozytorium)
 2. [Wymagania](#wymagania)
@@ -13,10 +37,11 @@ Symulator giełdy: rejestracja i logowanie (JWT), konto gotówkowe, instrumenty,
 8. [Swagger / OpenAPI](#swagger--openapi)
 9. [Konto administratora](#konto-administratora)
 10. [API: przegląd endpointów](#api-przegląd-endpointów)
-11. [Advanced feature](#advanced-feature)
-12. [Migracje bazy (Flyway)](#migracje-bazy-flyway)
-13. [Rozwiązywanie problemów](#rozwiązywanie-problemów)
-14. [Diagram ERD](#diagram-erd)
+11. [Reguły biznesowe](#reguły-biznesowe)
+12. [Advanced feature](#advanced-feature)
+13. [Migracje bazy (Flyway)](#migracje-bazy-flyway)
+14. [Rozwiązywanie problemów](#rozwiązywanie-problemów)
+15. [Diagram ERD](#diagram-erd)
 
 ## Struktura repozytorium
 ```
@@ -268,6 +293,22 @@ $t = Invoke-RestMethod -Method Post http://localhost:8080/api/auth/login `
 Invoke-RestMethod http://localhost:8080/api/users/me -Headers @{ Authorization = "Bearer $($t.accessToken)" }
 ```
 
+## Reguły biznesowe
+Pełna lista: [docs/BUSINESS_RULES.md](docs/BUSINESS_RULES.md). Każda reguła ma stałe ID `BRxx` i miejsce, w którym
+jest egzekwowana (klasa lub ograniczenie w bazie); testy danej reguły nazywają się `BRxx_opis`
+(np. `./mvnw test '-Dtest=*Test#BR42*'`).
+
+| Obszar | Reguły | Najważniejsze |
+|---|---|---|
+| Spójność danych (ograniczenia w bazie) | BR01–BR11 | saldo ≥ 0, zablokowane ≤ saldo, brak krótkiej sprzedaży, ilość 1–10000 |
+| Konta i uwierzytelnianie | BR07, BR12–BR17 | unikalny email, polityka haseł, JWT 15 min, rotacja refresh tokenów z wykrywaniem ponownego użycia |
+| Instrumenty i ceny | BR18–BR22, BR56 | cena bieżąca = ostatni tick, tylko ADMIN dodaje i wyłącza instrumenty |
+| Rynek i symulator | BR23–BR26 | godziny sesji, błądzenie losowe cen, retencja ticków |
+| Gotówka i historia | BR27–BR32 | wpłata/wypłata tylko z dostępnych środków, każda zmiana salda w ledgerze |
+| Zlecenia i pozycje | BR33–BR45 | średnia cena ważona, MARKET od razu, LIMIT/STOP rezerwują środki lub akcje, max 20 otwartych, anulowanie |
+| Matching i współbieżność | BR46–BR52 | warunki wykonania LIMIT/STOP, każde zlecenie w osobnej transakcji, blokada konta `FOR UPDATE` + `@Version` |
+| Zdarzenia na żywo | BR53–BR55 | SSE z tokenem w query, ceny do wszystkich, statusy zleceń tylko do właściciela |
+
 ## Advanced feature
 Rynek „żyje” bez udziału użytkowników: ceny zmieniają się same, zlecenia oczekujące wykonują się,
 gdy cena osiągnie zadany poziom, a przeglądarka dostaje ceny i zmiany statusów zleceń na żywo.
@@ -341,6 +382,8 @@ Z konsoli: `curl -N "http://localhost:8080/api/stream?token=<accessToken>"`.
 | Ceny stoją, zlecenia zwracają `MARKET_CLOSED` | poza godzinami sesji; na demo ustaw `MARKET_ALWAYS_OPEN=true` w `.env` i `docker compose up -d` |
 
 ## Diagram ERD
+Schemat po migracjach V1–V4 (V2 zmienia strukturę, V3 i V4 tylko dodają dane). Pełne ograniczenia `CHECK`
+są w plikach migracji, najważniejsze opisuje [docs/BUSINESS_RULES.md](docs/BUSINESS_RULES.md) (BR01–BR11).
 
 ```mermaid
 erDiagram
@@ -359,7 +402,9 @@ erDiagram
         varchar email UK "max 254, lowercase"
         varchar password_hash "argon2id"
         varchar role "USER | ADMIN"
+        boolean enabled "disabled cannot log in"
         timestamptz created_at
+        timestamptz updated_at
     }
     REFRESH_TOKENS {
         bigint id PK
@@ -375,6 +420,7 @@ erDiagram
         numeric balance "19,4 | >= 0"
         numeric blocked_balance "19,4 | 0..balance"
         bigint version "optimistic lock"
+        timestamptz created_at
         timestamptz updated_at
     }
     INSTRUMENTS {
@@ -388,7 +434,7 @@ erDiagram
         bigint id PK
         bigint instrument_id FK
         numeric price "19,4 | > 0"
-        timestamptz ts "idx (instrument_id, ts)"
+        timestamptz ts "idx (instrument_id, ts desc)"
     }
     ORDERS {
         bigint id PK
@@ -399,11 +445,13 @@ erDiagram
         int quantity "1..10000"
         numeric limit_price "required iff LIMIT"
         numeric stop_price "required iff STOP"
-        numeric reserved_amount "funds blocked for BUY"
+        numeric reserved_amount "funds blocked for BUY, 0 for SELL"
         varchar status "NEW | FILLED | CANCELLED | REJECTED"
-        numeric filled_price "nullable"
+        numeric filled_price "set iff FILLED"
+        timestamptz filled_at "set iff FILLED"
+        bigint version "optimistic lock"
         timestamptz created_at
-        timestamptz filled_at "nullable"
+        timestamptz updated_at
     }
     POSITIONS {
         bigint id PK
@@ -413,11 +461,13 @@ erDiagram
         int blocked_quantity "0..quantity"
         numeric avg_price "19,4"
         bigint version "optimistic lock"
+        timestamptz created_at
+        timestamptz updated_at
     }
     TRANSACTIONS {
         bigint id PK
         bigint user_id FK
-        bigint order_id FK "nullable"
+        bigint order_id FK "set iff BUY | SELL"
         varchar type "DEPOSIT | WITHDRAW | BUY | SELL"
         numeric amount "19,4 | > 0"
         numeric balance_after "19,4"
