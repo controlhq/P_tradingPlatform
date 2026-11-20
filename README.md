@@ -25,16 +25,22 @@ backend/                 Spring Boot 3.5 (Java 21), Maven wrapper
   src/main/resources/db/migration/   migracje Flyway (V1, V2, ...)
   Dockerfile             obraz backendu (build: Maven + JDK 21, runtime: JRE 21)
 frontend/                React + Vite + TS (react-router, axios, recharts)
+  src/                   api/, auth/, components/, pages/, routes/, stream/
+  Dockerfile             obraz frontendu (build: Node 20, runtime: nginx)
+  nginx.conf             pliki statyczne, fallback SPA, proxy /api -> backend:8080
 docs/BUSINESS_RULES.md   reguły biznesowe (BRxx), testy nazwane BRxx_opis
-docker-compose.yml       PostgreSQL 16 (db) + backend
+docker-compose.yml       PostgreSQL 16 (db) + backend + frontend
 .env.example             szablon konfiguracji
 ```
 
 ## Wymagania
-- **Java 21+** (`java -version`)
-- **Docker Desktop**: uruchomiony, potrzebny do bazy danych i do testów (Testcontainers)
-- Maven **nie** jest potrzebny, projekt ma wrapper `mvnw`
-- **Node.js 20.19+ lub 22.12+** i npm (`node -v`): tylko dla frontendu
+Do uruchomienia całości w Dockerze wystarczy:
+- **Docker Desktop** (uruchomiony) z Docker Compose v2 (`docker compose version`)
+
+Do pracy nad kodem i testów dodatkowo:
+- **Java 21+** (`java -version`); Maven **nie** jest potrzebny, projekt ma wrapper `mvnw`
+- **Node.js 20.19+ lub 22.12+** i npm (`node -v`): tylko dla frontendu uruchamianego lokalnie
+- Docker jest potrzebny także do testów (Testcontainers)
 
 ## Konfiguracja (.env)
 Cała konfiguracja jest w pliku `.env` w katalogu głównym. Plik nie trafia do repo (`.gitignore`).
@@ -68,7 +74,7 @@ Wszystkie komendy wykonuj z katalogu głównego repo.
 | Uruchom bazę | `docker compose up -d db` |
 | Status | `docker compose ps` |
 | Logi | `docker compose logs -f db` |
-| Uruchom bazę i backend | `docker compose up -d --build` (szczegóły w „Uruchomienie aplikacji”) |
+| Uruchom całość (baza, backend, frontend) | `docker compose up -d --build` (szczegóły w „Uruchomienie aplikacji”) |
 | Zatrzymaj (dane zostają) | `docker compose stop db` |
 | Usuń kontener (dane zostają w wolumenie) | `docker compose down` |
 | **Usuń kontener i wszystkie dane** | `docker compose down -v` |
@@ -78,19 +84,29 @@ Baza jest wystawiona na porcie **5433** (`DB_PORT`), żeby nie kolidować z loka
 Schemat tworzy Flyway przy starcie aplikacji, więc nic nie trzeba zakładać ręcznie.
 
 ## Uruchomienie aplikacji
-**Całość jednym poleceniem (baza + backend w Dockerze):**
+**Całość jednym poleceniem (baza + backend + frontend w Dockerze):**
 ```powershell
 Copy-Item .env.example .env      # jednorazowo, uzupełnij JWT_SECRET i DB_PASSWORD
-docker compose up -d --build
+docker compose up -d --build --wait
 ```
-- `backend` startuje dopiero, gdy baza jest zdrowa (`depends_on: condition: service_healthy`), i jest dostępny
-  na `http://localhost:8080`. W sieci compose łączy się z bazą pod adresem `db:5432`.
-- `docker compose ps`: oba serwisy powinny mieć status `healthy` (healthcheck backendu odpytuje `/actuator/health`).
-  `docker compose up -d --build --wait` czeka, aż oba będą zdrowe.
-- Logi: `docker compose logs -f backend`. Zatrzymanie: `docker compose down` (dane bazy zostają w wolumenie).
+Potem otwórz **http://localhost:5173** i zaloguj się, np. kontem administratora (niżej) albo załóż nowe konto.
+`.env.example` ma `MARKET_ALWAYS_OPEN=true`, więc na demo rynek jest otwarty o każdej porze.
+
+| Serwis | Adres na hoście | Opis |
+|---|---|---|
+| `frontend` | http://localhost:5173 | nginx: aplikacja React; `/api/**` przekazuje do backendu, więc przeglądarka rozmawia z jednym adresem |
+| `backend` | http://localhost:8080 | API, Swagger UI, `/actuator/health` |
+| `db` | `localhost:5433` | PostgreSQL 16 (`DB_PORT`) |
+
+- Kolejność startu: `db` → `backend` (gdy baza zdrowa) → `frontend` (gdy backend zdrowy); `--wait` czeka,
+  aż wszystkie trzy będą `healthy`. Stan: `docker compose ps`.
+- W sieci compose backend łączy się z bazą pod adresem `db:5432`, a nginx z backendem pod `backend:8080`.
+- Dla `/api/stream` nginx ma wyłączone buforowanie, żeby zdarzenia SSE docierały od razu.
+- Logi: `docker compose logs -f backend` (lub `frontend`, `db`). Zatrzymanie: `docker compose down` (dane bazy zostają w wolumenie).
 - Po zmianie kodu wystarczy ponownie `docker compose up -d --build`. Obraz nie uruchamia testów (Testcontainers
   potrzebuje Dockera), więc przed buildem odpal `./mvnw test`.
-- Nie uruchamiaj jednocześnie backendu w Dockerze i z IDE, bo oba chcą port 8080.
+- Nie uruchamiaj jednocześnie backendu w Dockerze i z IDE (oba chcą port 8080) ani frontendu w Dockerze
+  i `npm run dev` (oba chcą port 5173). Sam frontend z compose można zatrzymać: `docker compose stop frontend`.
 
 **Z terminala (sama baza w Dockerze, backend lokalnie):**
 ```powershell
@@ -120,7 +136,9 @@ java -jar target/tradingPlatform-0.0.1-SNAPSHOT.jar   # uruchom z katalogu backe
 ```
 
 ## Frontend
-React + Vite + TypeScript w katalogu `frontend/`. Wymaga działającego backendu (lokalnie albo `docker compose up -d --build`).
+React + Vite + TypeScript w katalogu `frontend/`. W Dockerze startuje razem z resztą (`docker compose up -d --build`,
+zob. „Uruchomienie aplikacji”). Do pracy nad kodem uruchom serwer deweloperski; wymaga działającego backendu
+(lokalnie albo `docker compose up -d --build db backend`):
 
 ```powershell
 cd frontend
@@ -203,7 +221,8 @@ Migracja `V3__seed_admin.sql` tworzy konto do testów:
 |---|---|---|
 | `admin@trading.local` | `Admin12345` | `ADMIN` |
 
-To konto jest tylko do celów deweloperskich i prezentacji. W każdym innym środowisku zmień hasło albo usuń to konto.
+Po zalogowaniu na http://localhost:5173 w nagłówku pojawia się link **Admin** (strona `/admin`: dodawanie
+instrumentów, włączanie i wyłączanie). To konto jest tylko do celów deweloperskich i prezentacji. W każdym innym środowisku zmień hasło albo usuń to konto.
 
 Zwykłego użytkownika zakładasz przez `POST /api/auth/register` (rola `USER`).
 
@@ -317,6 +336,9 @@ Z konsoli: `curl -N "http://localhost:8080/api/stream?token=<accessToken>"`.
 | Testy: `Could not find a valid Docker environment` | uruchom Docker Desktop |
 | `Validate failed: Migration checksum mismatch` | edytowano zastosowaną migrację; cofnij zmianę i dodaj nową migrację (lokalnie można `docker compose down -v`) |
 | IntelliJ pokazuje błędy, a `mvnw` działa | *Reload All Maven Projects* |
+| `npm run dev`: `Port 5173 is already in use` | działa frontend z compose; `docker compose stop frontend` |
+| `Bind for 0.0.0.0:5173` / `:8080` / `:5433 failed: port is already allocated` | port zajmuje inny proces (np. `npm run dev`, backend z IDE, lokalny Postgres); zatrzymaj go albo zmień port |
+| Ceny stoją, zlecenia zwracają `MARKET_CLOSED` | poza godzinami sesji; na demo ustaw `MARKET_ALWAYS_OPEN=true` w `.env` i `docker compose up -d` |
 
 ## Diagram ERD
 
