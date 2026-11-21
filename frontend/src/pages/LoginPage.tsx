@@ -42,8 +42,8 @@ export function LoginPage() {
   }
 
   return (
-    <main className="centered">
-      <div className="card">
+    <main className="centered auth-page">
+      <div className="card auth-card">
         <h1>Logowanie</h1>
         <form className="form" onSubmit={handleSubmit} noValidate>
           <ErrorAlert problem={problem} />

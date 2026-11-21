@@ -98,6 +98,71 @@ a:hover {
   font-size: 0.8rem;
 }
 
+/* ---------- login / register ---------- */
+
+.auth-page {
+  background: var(--bg) url('/login-registerbg.svg') center / cover no-repeat;
+}
+
+.auth-card {
+  max-width: 380px;
+  background: rgba(11, 18, 27, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 0;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.auth-card h1 {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.auth-card .field label,
+.auth-card .muted {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.auth-card .field input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 0;
+}
+
+.auth-card .field input:focus {
+  border-color: #fff;
+}
+
+.auth-card .field input[aria-invalid='true'] {
+  border-color: var(--down);
+}
+
+.auth-card .btn-primary {
+  color: var(--bg);
+  background: #fff;
+  border: 1px solid #fff;
+  border-radius: 0;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.auth-card .btn-primary:hover:not(:disabled) {
+  color: #fff;
+  background: transparent;
+  border-color: #fff;
+}
+
+.auth-card .alert-error {
+  border-radius: 0;
+}
+
+.auth-card a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .app {
   min-height: 100vh;
   display: flex;
